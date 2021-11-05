@@ -1,0 +1,20 @@
+# For more information about the available options please visit: http://go/backstage (VPN required)
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  annotations:
+    github.com/project-slug: Unity-Technologies/boat-attack-water
+  name: boat-attack-water
+  description: "Package repo containing the water system created for the URP Boat Attack demo project."
+  labels:
+    costcenter: "5015"
+  tags:
+    - planned-public
+  links:
+    - url: https://unity.slack.com/messages/C02M107KQJC/
+      title: "#boat-attack"
+      icon: chat
+spec:
+  type: unity-package
+  lifecycle: experimental
+  owner: unity-technologies/universal-rp-team
