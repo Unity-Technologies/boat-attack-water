@@ -1,0 +1,23 @@
+{
+    "name": "WaterSystem.Editor",
+    "rootNamespace": "",
+    "references": [
+        "GUID:eee6090a63a1e48e6857869e0cbe74dc",
+        "GUID:b75d3cd3037d383a8d1e2f9a26d73d8a",
+        "GUID:d8b63aba1907145bea998dd612889d6b",
+        "GUID:15fc0a57446b3144c949da3e2b9737a9",
+        "GUID:df380645f10b7bc4b97d4f5eb6303d95",
+        "GUID:3eae0364be2026648bf74846acb8a731"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
