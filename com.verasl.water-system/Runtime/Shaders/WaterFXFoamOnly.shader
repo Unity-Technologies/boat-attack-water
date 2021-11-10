@@ -10,6 +10,7 @@
 		Tags { "RenderType"="Transparent" "Queue"="Transparent" "RenderPipeline" = "UniversalPipeline" }
 		ZWrite Off
 		Blend One One
+		ColorMask R 0
 		LOD 100
 
 		Pass

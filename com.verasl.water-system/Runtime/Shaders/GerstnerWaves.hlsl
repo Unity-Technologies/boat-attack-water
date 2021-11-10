@@ -22,6 +22,7 @@ struct WaveStruct
 {
 	float3 position;
 	float3 normal;
+	float foam;
 };
 
 WaveStruct GerstnerWave(half2 pos, float waveCountMulti, half amplitude, half direction, half wavelength, half omni, half2 omniPos)
@@ -65,15 +66,19 @@ WaveStruct GerstnerWave(half2 pos, float waveCountMulti, half amplitude, half di
 	////////////////////////////////assign to output///////////////////////////////
 	waveOut.position = wave * saturate(amplitude * 10000);
 	waveOut.normal = (n.xzy * waveCountMulti);
+	half a = (sinCalc + 1) * 0.5;
+	half b = dot(wave.xz, windDir);
+	waveOut.foam = saturate(a * b);
 
 	return waveOut;
 }
 
 inline void SampleWaves(float3 position, half opacity, out WaveStruct waveOut)
 {
+	waveOut = (WaveStruct)0;
 	half2 pos = position.xz;
-	waveOut.position = 0;
-	waveOut.normal = 0;
+	//waveOut.position = 0;
+	//waveOut.normal = 0;
 	half waveCountMulti = 1.0 / _WaveCount;
 	half3 opacityMask = saturate(half3(3, 3, 1) * opacity);
 
@@ -100,9 +105,25 @@ inline void SampleWaves(float3 position, half opacity, out WaveStruct waveOut)
 
 		waveOut.position += wave.position; // add the position
 		waveOut.normal += wave.normal; // add the normal
+		waveOut.foam += wave.foam * opacity;
 	}
 	waveOut.position *= opacityMask;
 	waveOut.normal *= half3(opacity, 1, opacity);
+}
+
+void Gerstner_SG_test_half(float3 pos, half amp, half dir, half length, out float3 position, out float3 normal)
+{
+	
+	WaveStruct wave = GerstnerWave(pos.xz,
+		1,
+		amp,
+		dir,
+		length,
+		0,
+		0
+		);
+	position = wave.position;
+	normal = wave.normal;
 }
 
 #endif // GERSTNER_WAVES_INCLUDED

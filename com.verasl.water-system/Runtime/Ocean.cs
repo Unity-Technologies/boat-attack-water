@@ -340,6 +340,7 @@ namespace WaterSystem
             Specular,
             SSS,
             Foam,
+            FoamMask,
             WaterBufferA,
             WaterBufferB,
             Depth,

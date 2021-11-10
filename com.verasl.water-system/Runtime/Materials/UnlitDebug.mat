@@ -21,7 +21,8 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: UnlitDebug
-  m_Shader: {fileID: -6465566751694194690, guid: f4afb2850e0ac4a5c89643ab3b3d4ba8, type: 3}
+  m_Shader: {fileID: -6465566751694194690, guid: f4afb2850e0ac4a5c89643ab3b3d4ba8,
+    type: 3}
   m_ShaderKeywords: 
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
@@ -57,7 +58,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MainTex:
-        m_Texture: {fileID: 2800000, guid: 827d74d7adcf444d887e329a38356165, type: 3}
+        m_Texture: {fileID: 2800000, guid: 644e0747178ff4468b6369fe4719b613, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MetallicGlossMap:

@@ -116,7 +116,7 @@ half4 AdditionalData(float3 postionWS, WaveStruct wave)
 	data.x = length(viewPos / viewPos.z);// distance to surface
     data.y = length(GetCameraPositionWS().xyz - postionWS); // local position in camera space(view direction WS)
 	data.z = wave.position.y / _MaxWaveHeight * 0.5 + 0.5; // encode the normalized wave height into additional data
-	data.w = wave.position.x + wave.position.z;
+	data.w = wave.foam;// wave.position.x + wave.position.z;
 	return data;
 }
 
@@ -233,13 +233,29 @@ void InitializeSurfaceData(inout WaterInputData input, out WaterSurfaceData surf
 	// Foam
 	half3 foamMap = SAMPLE_TEXTURE2D(_FoamMap, sampler_FoamMap,  input.detailUV.zw).rgb; //r=thick, g=medium, b=light
 	half depthEdge = saturate(depth.x * 20);
-	half waveFoam = saturate(additionalData.z - 0.5 * 0.5); // wave tips
-	half edgeFoam = saturate(1 - min(depth, input.waterBufferB.b) * 0.5 - 0.5) * depthEdge;
+	half waveFoam = saturate(additionalData.w);//saturate(additionalData.z - 0.5 * 0.5); // wave tips
+	half edgeFoam = pow(saturate(1 - min(depth, input.waterBufferB.b) * 0.25 - 0.5) * depthEdge, 2.4) * 6.8;
 	half foamBlendMask = waveFoam + edgeFoam + input.waterBufferA.r;// max(max(waveFoam, edgeFoam), input.waterFX.r * 2);
 
-	surfaceData.foamMask = saturate(length(foamMap * pow(foamBlendMask, 1) /* foamBlend */) * 1.5 - 2 + _BoatAttack_water_FoamIntensity) + input.waterBufferA.r * 0.25;
+	foamBlendMask += foamMap.x * 0.2 - 0.1;
+
+	foamBlendMask += -1 + _BoatAttack_water_FoamIntensity;
+	
+	half a = saturate(foamBlendMask * 2 - 0.25);
+	half b = saturate(foamBlendMask * 5 - 2);
+	half c = saturate(foamBlendMask * 8 - 7);
+
+	half aa = a * (2 - (b + c));
+	half bb = b * (2 - (c + a));
+	half cc = c * (2 - (b * a));
+
+	half3 mask = saturate(half3(cc, bb, aa) * half3(1, 0.5, 0.25));
+
+	surfaceData.foamMask = length(foamMap * mask);
+	
+	//surfaceData.foamMask = saturate(length(foamMap * pow(foamBlendMask, 1) /* foamBlend */) * 1.5 - 2 + _BoatAttack_water_FoamIntensity) + input.waterBufferA.r * 0.25;
 	//surfaceData.foamMask *= _BoatAttack_water_FoamIntensity;
-	surfaceData.foam = 0.85;//saturate(length(foamMap * foamBlend) * 1.5 - 0.1);
+	surfaceData.foam = 1;//saturate(length(foamMap * foamBlend) * 1.5 - 0.1);
 }
 
 float3 WaterShading(WaterInputData input, WaterSurfaceData surfaceData, float4 additionalData, float2 screenUV)
@@ -263,7 +279,7 @@ float3 WaterShading(WaterInputData input, WaterSurfaceData surfaceData, float4 a
 	half3 spec = DirectBDRF(brdfData, input.normalWS, mainLight.direction, input.viewDirectionWS) * mainLight.color * shadow;
 
 	// Foam
-	surfaceData.foam *= GI + directLighting * shadow;
+	surfaceData.foam *= GI + directLighting * 0.75 * shadow;
 	
     // Fresnel
 	half fresnelTerm = CalculateFresnelTerm(input.normalWS, input.viewDirectionWS);
@@ -303,14 +319,16 @@ float3 WaterShading(WaterInputData input, WaterSurfaceData surfaceData, float4 a
 			return half4(sss, 1);
 		case 6: // Foam
 			return half4(surfaceData.foam.xxx, 1) * surfaceData.foamMask;
-		case 7: // buffer A
+		case 7: // Foam Mask
+			return half4(surfaceData.foamMask.xxx, 1);
+		case 8: // buffer A
 			return input.waterBufferA;
-		case 8: // buffer B
+		case 9: // buffer B
 			return input.waterBufferB;
-		case 9: // eye depth
+		case 10: // eye depth
 			float d = input.depth;
 			return half4(frac(d), frac(d * 0.1), 0, 1);
-		case 10: // water depth texture
+		case 11: // water depth texture
 			float wd = WaterTextureDepth(screenUV);
 			return half4(frac(wd), frac(wd * 0.1), 0, 1);
 	}
