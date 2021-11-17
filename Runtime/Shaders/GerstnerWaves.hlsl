@@ -25,7 +25,7 @@ struct WaveStruct
 	float foam;
 };
 
-WaveStruct GerstnerWave(half2 pos, float waveCountMulti, half amplitude, half direction, half wavelength, half omni, half2 omniPos)
+WaveStruct GerstnerWave(half2 pos, float waveCountMulti, half amplitude, half2 direction, half wavelength, half omni, half2 omniPos)
 {
 	WaveStruct waveOut;
 #if defined(_STATIC_SHADER)
@@ -40,12 +40,8 @@ WaveStruct GerstnerWave(half2 pos, float waveCountMulti, half amplitude, half di
 	half wSpeed = sqrt(9.8 * w); // frequency of the wave based off wavelength
 	half peak = 1.5; // peak value, 1 is the sharpest peaks
 	half qi = peak / (amplitude * w * _WaveCount);
-
-	direction = radians(direction); // convert the incoming degrees to radians, for directional waves
-	half2 dirWaveInput = half2(sin(direction), cos(direction)) * (1 - omni);
-	half2 omniWaveInput = (pos - omniPos) * omni;
-
-	half2 windDir = normalize(dirWaveInput + omniWaveInput); // calculate wind direction
+	
+	half2 windDir = direction; // calculate wind direction
 	half dir = dot(windDir, pos - (omniPos * omni)); // calculate a gradient along the wind direction
 
 	////////////////////////////position output calculations/////////////////////////
@@ -71,6 +67,16 @@ WaveStruct GerstnerWave(half2 pos, float waveCountMulti, half amplitude, half di
 	waveOut.foam = saturate(a * b);
 
 	return waveOut;
+}
+
+WaveStruct GerstnerWave(half2 pos, float waveCountMulti, half amplitude, half direction, half wavelength, half omni, half2 omniPos)
+{
+	direction = radians(direction); // convert the incoming degrees to radians, for directional waves
+	half2 dirWaveInput = half2(sin(direction), cos(direction)) * (1 - omni);
+	half2 omniWaveInput = (pos - omniPos) * omni;
+
+	half2 windDir = normalize(dirWaveInput + omniWaveInput); // calculate wind direction
+	return GerstnerWave(pos, waveCountMulti, amplitude, windDir, wavelength, omni, omniPos);
 }
 
 inline void SampleWaves(float3 position, half opacity, out WaveStruct waveOut)
@@ -111,10 +117,10 @@ inline void SampleWaves(float3 position, half opacity, out WaveStruct waveOut)
 	waveOut.normal *= half3(opacity, 1, opacity);
 }
 
-void Gerstner_SG_test_half(float3 pos, half amp, half dir, half length, out float3 position, out float3 normal)
+void Gerstner_SG_test_half(float2 pos, half amp, half2 dir, half length, out float3 position, out float3 normal)
 {
 	
-	WaveStruct wave = GerstnerWave(pos.xz,
+	WaveStruct wave = GerstnerWave(pos,
 		1,
 		amp,
 		dir,

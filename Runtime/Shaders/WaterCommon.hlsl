@@ -275,7 +275,7 @@ float3 WaterShading(WaterInputData input, WaterSurfaceData surfaceData, float4 a
 
     BRDFData brdfData;
     half alpha = 1;
-    InitializeBRDFData(half3(0, 0, 0), 0, half3(1, 1, 1), 0.95, alpha, brdfData);
+    InitializeBRDFData(half3(0, 0, 0), 0, half3(1, 1, 1), 0.9, alpha, brdfData);
 	half3 spec = DirectBDRF(brdfData, input.normalWS, mainLight.direction, input.viewDirectionWS) * mainLight.color * shadow;
 
 	// Foam
