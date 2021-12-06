@@ -18,5 +18,6 @@ namespace WaterSystem
         public Mesh[] defaultWaterMeshes;
         public Mesh defaultInfinitewWaterMesh;
         public Shader causticShader;
+        public Shader infiniteWaterShader;
 	}
 }

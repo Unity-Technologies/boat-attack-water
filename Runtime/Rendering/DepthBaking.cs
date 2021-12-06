@@ -1,11 +1,14 @@
 #if UNITY_EDITOR
 using System.IO;
+using System.Reflection;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using UnityEditor.PackageManager;
+using PackageInfo = UnityEditor.PackageManager.PackageInfo;
 
 namespace WaterSystem
 {
@@ -50,10 +53,11 @@ namespace WaterSystem
     
     public static class DepthBaking
     {
-        public static void CaptureDepth(int tileResolution, int size, Transform objTransform)
+        public static void CaptureDepth(int tileResolution, int size, Transform objTransform, LayerMask mask)
         {
+            var package = PackageInfo.FindForAssembly(Assembly.GetAssembly(typeof(DepthBaking)));
             var depthCopyShader = AssetDatabase.LoadAssetAtPath<Shader>(
-                "Packages/com.verasl.water-system/Runtime/Shaders/Utility/SceneDepth.shadergraph");
+                $"{package.assetPath}/Runtime/Shaders/Utility/SceneDepth.shadergraph");
 
             if (depthCopyShader == null)
             {
@@ -61,7 +65,7 @@ namespace WaterSystem
                 return;
             }
 
-            CreateDepthCamera(out var depthCam, objTransform.position, size);
+            CreateDepthCamera(out var depthCam, objTransform.position, size, mask);
 
             if (depthCopyShader == null) return;
             var buffer = RenderTexture.GetTemporary(tileResolution, tileResolution, 24, RenderTextureFormat.ARGB32,
@@ -112,7 +116,7 @@ namespace WaterSystem
 
         static void SaveTile(byte[] data)
         {
-            var activeScene = EditorSceneManager.GetActiveScene();
+            var activeScene = DepthGenerator.Current.gameObject.scene;
             var sceneName = activeScene.name.Split('.')[0];
             var path = activeScene.path.Split('.')[0];
             if (!Directory.Exists(path))
@@ -133,7 +137,7 @@ namespace WaterSystem
             DepthGenerator.Current.depthTile = AssetDatabase.LoadAssetAtPath<Texture2D>($"{path}/{filename}");
         }
 
-        static void CreateDepthCamera(out Camera camera, Vector3 position, float size)
+        static void CreateDepthCamera(out Camera camera, Vector3 position, float size, LayerMask mask)
         {
             //Generate the camera
             var go = new GameObject("depthCamera") { hideFlags = HideFlags.HideAndDontSave }; //create the cameraObject
@@ -149,7 +153,8 @@ namespace WaterSystem
             cam.allowHDR = false;
             cam.allowMSAA = false;
             cam.cameraType = CameraType.Game;
-
+            cam.cullingMask = mask;
+            
             // tranform
             var t = cam.transform;
             var depthExtra = 4.0f;

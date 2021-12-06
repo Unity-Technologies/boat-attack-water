@@ -66,9 +66,10 @@ half SoftShadows(float2 screenUV, float3 positionWS, half3 viewDir, half depth)
 	    half3 j = jitterTexture.xzy * depthFrac * i * 0.1;
 	    float3 lightJitter = (positionWS + j) + (lightOffset * (i + jitterTexture.y));
 	    //shadowAttenuation += SAMPLE_TEXTURE2D_SHADOW(_MainLightShadowmapTexture, sampler_MainLightShadowmapTexture, TransformWorldToShadowCoord(lightJitter));
-	    shadowAttenuation += MainLightRealtimeShadow(TransformWorldToShadowCoord(lightJitter));
+	    shadowAttenuation += MainLightRealtimeShadow(TransformWorldToShadowCoord(lightJitter)) * loopDiv;
 	}
-    return BEYOND_SHADOW_FAR(TransformWorldToShadowCoord(positionWS)) ? 1.0 : shadowAttenuation;
+    shadowAttenuation = BEYOND_SHADOW_FAR(TransformWorldToShadowCoord(positionWS)) ? 1.0 : shadowAttenuation;
+    return lerp(shadowAttenuation, 1, GetMainLightShadowFade(positionWS));
 #else
     return 1;
 #endif

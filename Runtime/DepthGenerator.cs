@@ -1,3 +1,5 @@
+using System;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -7,7 +9,7 @@ namespace WaterSystem
     public class DepthGenerator : MonoBehaviour
     {
         public static DepthGenerator Current;
-        [HideInInspector, SerializeField] internal Texture2D depthTile;
+        [SerializeField] internal Texture2D depthTile;
 
         private static readonly int Depth = Shader.PropertyToID("_Depth");
         [HideInInspector, SerializeField] private Mesh mesh;
@@ -18,15 +20,40 @@ namespace WaterSystem
 
         public int size = 250;
         public int tileRes = 1024;
+        public LayerMask mask = new LayerMask();
 
         #if UNITY_EDITOR
         [ContextMenu("Capture Depth")]
         public void CaptureDepth()
         {
-            DepthBaking.CaptureDepth(tileRes, size, transform);
+            DepthBaking.CaptureDepth(tileRes, size, transform, mask);
             Current = this;
         }
         #endif
+
+        private void OnEnable()
+        {
+            if (depthTile == null)
+            {
+                #if UNITY_EDITOR
+                var activeScene = gameObject.scene;
+                var sceneName = activeScene.name.Split('.')[0];
+                var path = activeScene.path.Split('.')[0];
+                var file = $"{gameObject.name}_DepthTile.png";
+                try
+                {
+                    depthTile = AssetDatabase.LoadAssetAtPath<Texture2D>($"{path}/{file}");
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"Failed to load {GetType().Name} tile, please make sure it is generated:{e}");
+                    throw;
+                }
+                #else
+                Debug.LogWarning($"{GetType().Name} on gameobject {gameObject.name} is missing tile texture");
+                #endif
+            }
+        }
 
         private void LateUpdate()
         {

@@ -57,7 +57,15 @@ float2 AdjustedDepth(half2 uvs, half4 additionalData)
 {
 	float rawD = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, sampler_ScreenTextures_linear_clamp, uvs);
 	float d = LinearEyeDepth(rawD, _ZBufferParams);
-	return float2(d * additionalData.x - additionalData.y, (rawD * -_ProjectionParams.x) + (1-UNITY_REVERSED_Z));
+	float x = d * additionalData.x - additionalData.y;
+
+	if(d > _ProjectionParams.z)// TODO might be cheaper alternative
+	{
+		x = 1024;
+	}
+	
+	float y = rawD * -_ProjectionParams.x;
+	return float2(x, y);
 }
 
 float AdjustWaterTextureDepth(float input)
@@ -262,6 +270,9 @@ float3 WaterShading(WaterInputData input, WaterSurfaceData surfaceData, float4 a
 {
 	// extra inputs
 	half edgeFade = saturate(input.depth * 5);
+
+	// Fresnel
+	half fresnelTerm = CalculateFresnelTerm(input.normalWS, input.viewDirectionWS);
 	
     // Lighting
 	Light mainLight = GetMainLight(TransformWorldToShadowCoord(input.positionWS));
@@ -271,19 +282,15 @@ float3 WaterShading(WaterInputData input, WaterSurfaceData surfaceData, float4 a
     // SSS
     half3 directLighting = dot(mainLight.direction, half3(0, 1, 0)) * mainLight.color;
     directLighting += saturate(pow(dot(input.viewDirectionWS.xyz, -mainLight.direction) * additionalData.z, 3)) * mainLight.color;
-    
-
+	
     BRDFData brdfData;
     half alpha = 1;
-    InitializeBRDFData(half3(0, 0, 0), 0, half3(1, 1, 1), 0.9, alpha, brdfData);
+    InitializeBRDFData(half3(0, 0, 0), 0, half3(1, 1, 1), 0.9 - (fresnelTerm * 0.25), alpha, brdfData);
 	half3 spec = DirectBDRF(brdfData, input.normalWS, mainLight.direction, input.viewDirectionWS) * mainLight.color * shadow;
 
 	// Foam
 	surfaceData.foam *= GI + directLighting * 0.75 * shadow;
 	
-    // Fresnel
-	half fresnelTerm = CalculateFresnelTerm(input.normalWS, input.viewDirectionWS);
-
 	// SSS
     half3 sss = directLighting * shadow + GI;
     sss *= Scattering(input.depth);
@@ -296,8 +303,7 @@ float3 WaterShading(WaterInputData input, WaterSurfaceData surfaceData, float4 a
 	half3 refraction = Refraction(input.refractionUV, input.depth, edgeFade);
 
 	// Do compositing
-	half3 output = lerp(lerp(refraction, reflection + spec, fresnelTerm) + sss, surfaceData.foam, surfaceData.foamMask);
-
+	half3 output = lerp(lerp(refraction, reflection, fresnelTerm) + spec + sss, surfaceData.foam, surfaceData.foamMask);
 	// final
 	output = MixFog(output, input.fogCoord);
 
@@ -374,7 +380,7 @@ half4 WaterFragment(Varyings IN) : SV_Target
 
     WaterInputData inputData;
     InitializeInputData(IN, inputData, screenUV.xy);
-
+	
     WaterSurfaceData surfaceData;
     InitializeSurfaceData(inputData, surfaceData, IN.additionalData);
 

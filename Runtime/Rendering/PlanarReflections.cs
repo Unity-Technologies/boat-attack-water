@@ -57,8 +57,6 @@ namespace UnityEngine.Rendering.Universal
 
         private void Cleanup()
         {
-            //RenderPipelineManager.beginCameraRendering -= ExecutePlanarReflections;
-
             if(_reflectionCamera)
             {
                 _reflectionCamera.targetTexture = null;
@@ -222,7 +220,7 @@ namespace UnityEngine.Rendering.Universal
                 var res = ReflectionResolution(cam, UniversalRenderPipeline.asset.renderScale);
                 bool useHdr10 = RenderingUtils.SupportsRenderTextureFormat(RenderTextureFormat.RGB111110Float);
                 RenderTextureFormat hdrFormat = useHdr10 ? RenderTextureFormat.RGB111110Float : RenderTextureFormat.DefaultHDR;
-                _reflectionTexture = RenderTexture.GetTemporary(res.x, res.y, 16,
+                _reflectionTexture = RenderTexture.GetTemporary(res.x, res.y, 24,
                     GraphicsFormatUtility.GetGraphicsFormat(hdrFormat, true));
             }
             _reflectionCamera.targetTexture =  _reflectionTexture;

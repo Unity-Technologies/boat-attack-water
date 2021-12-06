@@ -38,3 +38,4 @@ MonoBehaviour:
   defaultInfinitewWaterMesh: {fileID: 4300000, guid: 0694fda6617df4cd6a3d240f5eeb580b,
     type: 3}
   causticShader: {fileID: 4800000, guid: 90939d2e4b62841d29c136c866715501, type: 3}
+  infiniteWaterShader: {fileID: 4800000, guid: 5f51d4f8f480441339ead24ab495af7d, type: 3}

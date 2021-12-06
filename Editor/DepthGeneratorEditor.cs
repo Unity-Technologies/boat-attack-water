@@ -11,11 +11,13 @@ public class DepthGeneratorEditor : Editor
 
     private SerializedProperty _size;
     private SerializedProperty _tileRes;
+    private SerializedProperty _mask;
     
     private void OnEnable()
     {
         _size = serializedObject.FindProperty(nameof(DepthGenerator.size));
         _tileRes = serializedObject.FindProperty(nameof(DepthGenerator.tileRes));
+        _mask = serializedObject.FindProperty(nameof(DepthGenerator.mask));
     }
 
     public override void OnInspectorGUI()
@@ -24,6 +26,7 @@ public class DepthGeneratorEditor : Editor
 
         EditorGUILayout.PropertyField(_size);
         EditorGUILayout.PropertyField(_tileRes);
+        EditorGUILayout.PropertyField(_mask);
 
         GUILayout.Space(10);
         
