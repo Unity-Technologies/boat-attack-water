@@ -37,6 +37,9 @@ TEXTURE2D(_SurfaceMap); SAMPLER(sampler_SurfaceMap);
 TEXTURE2D(_FoamMap); SAMPLER(sampler_FoamMap);
 TEXTURE2D(_DitherPattern); SAMPLER(sampler_DitherPattern);
 
+// Data Textures
+TEXTURE2D(_BoatAttack_RampTexture); SAMPLER(sampler_BoatAttack_Linear_Clamp_RampTexture);
+
 ///////////////////////////////////////////////////////////////////////////////
 //                  				Structs		                             //
 ///////////////////////////////////////////////////////////////////////////////

@@ -3,6 +3,7 @@
 using UnityEditor;
 #endif
 using UnityEngine;
+using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using Object = UnityEngine.Object;
@@ -49,6 +50,9 @@ namespace WaterSystem
         // RuntimeMaterials
         private Material _causticMaterial;
 
+        // Runttime Resources
+        private Texture2D _rampTexture;
+        
         // Shader props
         private static readonly int CameraRoll = Shader.PropertyToID("_CameraRoll");
         private static readonly int InvViewProjection = Shader.PropertyToID("_InvViewProjection");
@@ -68,6 +72,7 @@ namespace WaterSystem
         private static readonly int ScatteringColor = Shader.PropertyToID("_ScatteringColor");
         private static readonly int BoatAttackWaterMicroWaveIntensity = Shader.PropertyToID("_BoatAttack_Water_MicroWaveIntensity");
         private static readonly int BoatAttackWaterFoamIntensity = Shader.PropertyToID("_BoatAttack_water_FoamIntensity");
+        private static readonly int RampTexture = Shader.PropertyToID("_BoatAttack_RampTexture");
 
         private void OnEnable()
         {
@@ -108,7 +113,8 @@ namespace WaterSystem
         {
             if (cam.cameraType == CameraType.Preview) return;
 
-            PlanarReflections.Execute(src, cam, transform);
+            if (settingsData.refType == Data.ReflectionType.PlanarReflection)
+                PlanarReflections.Execute(src, cam, transform);
 
             if (_causticMaterial == null)
             {
@@ -170,6 +176,7 @@ namespace WaterSystem
         [ContextMenu("Init")]
         public void Init()
         {
+            GenerateColorRamp();
             SetWaves();
 
             if (!gameObject.TryGetComponent(out _planarReflections))
@@ -282,6 +289,38 @@ namespace WaterSystem
             if(GerstnerWavesJobs.Initialized == false && Application.isPlaying)
                 GerstnerWavesJobs.Init();
         }
+        
+        private void GenerateColorRamp()
+        {
+            const int rampCount = 2;
+            const int rampRes = 128;
+            
+            var pixelHeight = Mathf.CeilToInt(rampCount / 4.0f);
+            
+            if(_rampTexture == null)
+                _rampTexture = new Texture2D(rampRes,  pixelHeight, GraphicsFormat.R8G8B8A8_SRGB, TextureCreationFlags.None);
+            _rampTexture.wrapMode = TextureWrapMode.Clamp;
+
+            //var defaultFoamRamp = resources.defaultFoamRamp;
+
+            // Foam shore
+            var cols = new Color[rampRes * pixelHeight];
+            for (var i = 0; i < rampRes; i++)
+            {
+                var val = settingsData._shoreFoamProfile.Evaluate(i / (float)rampRes);
+                cols[i].r = Mathf.LinearToGammaSpace(val);
+            }
+            // Foam Gerstner waves
+            for (var i = 0; i < rampRes; i++)
+            {
+                var val = settingsData._waveFoamProfile.Evaluate(i / (float)rampRes);
+                cols[i].g = Mathf.LinearToGammaSpace(val);
+            }
+            
+            _rampTexture.SetPixels(cols);
+            _rampTexture.Apply();
+            Shader.SetGlobalTexture(RampTexture, _rampTexture);
+        }
 
         private Vector4[] GetWaveData()
         {
@@ -313,7 +352,7 @@ namespace WaterSystem
                 for (var i = 0; i < numWave; i++)
                 {
                     var p = Mathf.Lerp(0.5f, 1.5f, i * r);
-                    var amp = a * p * Random.Range(0.8f, 1.2f);
+                    var amp = a * p * Random.Range(0.33f, 1.66f);
                     var dir = d + Random.Range(-90f, 90f);
                     var len = l * p * Random.Range(0.6f, 1.4f);
                     waves[i] = new Data.Wave(amp, dir, len, Vector2.zero, false);

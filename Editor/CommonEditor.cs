@@ -8,17 +8,17 @@ namespace WaterSystem
         public static class Styles
         {
             public static GUIContent ColorHeader =
-                new("Color Settings", Tooltips.ColorHeader);
+                new GUIContent("Color Settings", Tooltips.ColorHeader);
             public static GUIContent WavesHeader =
-                new("Waves", Tooltips.WavesHeader);
+                new GUIContent("Waves", Tooltips.WavesHeader);
             public static GUIContent ReflectionHeader =
-                new("Reflection", Tooltips.ReflectionHeader);
+                new GUIContent("Reflection", Tooltips.ReflectionHeader);
             public static GUIContent FlowHeader =
-                new("Flow Map", Tooltips.FlowHeader);
+                new GUIContent("Flow Map", Tooltips.FlowHeader);
             public static GUIContent ShoreHeader =
-                new("Shoreline", Tooltips.ShoreHeader);
+                new GUIContent("Shoreline", Tooltips.ShoreHeader);
             public static GUIContent CausticHeader =
-                new("Caustics", Tooltips.CausticHeader);
+                new GUIContent("Caustics", Tooltips.CausticHeader);
         }
 
         public static class Tooltips

@@ -35,28 +35,33 @@ namespace WaterSystem
             // Calling Configure since we are wanting to render into a RenderTexture and control cleat
             public override void Configure(CommandBuffer cmd, RenderTextureDescriptor cameraTextureDescriptor)
             {
-                RenderTextureDescriptor rtd = new RenderTextureDescriptor();
-                // no need for a depth buffer
-                rtd.depthBufferBits = 0;
-                // dimension
-                rtd.dimension = TextureDimension.Tex2D;
-                // Half resolution
-                rtd.width = cameraTextureDescriptor.width;// / 2;
-                rtd.height = cameraTextureDescriptor.height;// / 2;
-                // default format TODO research usefulness of HDR format
-                rtd.colorFormat = RenderTextureFormat.Default;
-                rtd.msaaSamples = 1;
-                rtd.useMipMap = false;
+                RenderTextureDescriptor rtd = new RenderTextureDescriptor
+                {
+                    // no need for a depth buffer
+                    depthBufferBits = 0,
+                    // dimension
+                    dimension = TextureDimension.Tex2D,
+                    // Half resolution
+                    width = cameraTextureDescriptor.width,// / 2;
+                    height = cameraTextureDescriptor.height,// / 2;
+                    // default format TODO research usefulness of HDR format
+                    colorFormat = RenderTextureFormat.Default,
+                    msaaSamples = 1,
+                    useMipMap = false,
+                };
+                
                 // get a temp RT for rendering into
                 cmd.GetTemporaryRT(m_BufferATexture, rtd, FilterMode.Bilinear);
                 cmd.GetTemporaryRT(m_BufferBTexture, rtd, FilterMode.Bilinear);
                 
                 RenderTargetIdentifier[] multiTargets = { m_BufferTargetA, m_BufferTargetB };
-                ConfigureTarget(multiTargets);
+                ConfigureTarget(multiTargets, BuiltinRenderTextureType.None);
                 // clear the screen with a specific color for the packed data
                 ConfigureClear(ClearFlag.Color, m_ClearColor);
                 
+#if UNITY_2021_1_OR_NEWER
                 ConfigureDepthStoreAction(RenderBufferStoreAction.DontCare);
+#endif
             }
 
             public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)

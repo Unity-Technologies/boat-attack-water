@@ -20,7 +20,7 @@ namespace WaterSystem
         
         private RenderTexture depthTarget;
         private readonly Material _mat;
-        private readonly ProfilingSampler _profiler = new("DepthSave");
+        private readonly ProfilingSampler _profiler = new ProfilingSampler("DepthSave");
 
         public DepthSave(Shader shader, RenderTexture depthTarget)
         {
@@ -53,7 +53,10 @@ namespace WaterSystem
     
     public static class DepthBaking
     {
-        public static void CaptureDepth(int tileResolution, int size, Transform objTransform, LayerMask mask)
+        static float YOffset;
+        static float Range;
+        
+        public static void CaptureDepth(int tileResolution, int size, Transform objTransform, LayerMask mask, float range, float offset)
         {
             var package = PackageInfo.FindForAssembly(Assembly.GetAssembly(typeof(DepthBaking)));
             var depthCopyShader = AssetDatabase.LoadAssetAtPath<Shader>(
@@ -65,6 +68,8 @@ namespace WaterSystem
                 return;
             }
 
+            Range = range;
+            YOffset = offset;
             CreateDepthCamera(out var depthCam, objTransform.position, size, mask);
 
             if (depthCopyShader == null) return;
@@ -130,6 +135,7 @@ namespace WaterSystem
             var settings = new TextureImporterSettings();
             import.ReadTextureSettings(settings);
             settings.textureType = TextureImporterType.SingleChannel;
+            settings.readable = true;
             settings.singleChannelComponent = TextureImporterSingleChannelComponent.Red;
             import.SetTextureSettings(settings);
             import.SaveAndReimport();
@@ -146,10 +152,9 @@ namespace WaterSystem
             // setup camera props
             cam.enabled = false;
             cam.orthographic = true;
-            //cam.depthTextureMode = DepthTextureMode.Depth;
-            cam.orthographicSize = size * 0.5f; //hardcoded = 1k area - TODO
+            cam.orthographicSize = size * 0.5f;
             cam.nearClipPlane = 0.01f;
-            cam.farClipPlane = 20 + 1; // settingsData._waterMaxVisibility + depthExtra;
+            cam.farClipPlane = Range + YOffset; // settingsData._waterMaxVisibility + depthExtra;
             cam.allowHDR = false;
             cam.allowMSAA = false;
             cam.cameraType = CameraType.Game;
@@ -157,8 +162,7 @@ namespace WaterSystem
             
             // tranform
             var t = cam.transform;
-            var depthExtra = 4.0f;
-            t.position = position + Vector3.up * depthExtra;
+            t.position = position + Vector3.up * YOffset;
             t.up = Vector3.forward; //face the camera down
 
             // setup additional data

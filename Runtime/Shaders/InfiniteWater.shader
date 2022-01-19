@@ -58,8 +58,8 @@
 
 				float3 cameraOffset = GetCameraPositionWS();
             	input.positionOS.xz *= _BoatAttack_Water_DistanceBlend; // scale range to blend distance
-            	input.positionOS.y *= cameraOffset.y - _WaveHeight * 2; // scale height to camera
-				input.positionOS.y -= cameraOffset.y - _WaveHeight * 2;
+            	input.positionOS.y *= cameraOffset.y - _WaveHeight; // scale height to camera
+				input.positionOS.y -= cameraOffset.y - _WaveHeight;
 
                 VertexPositionInputs vertexInput = GetVertexPositionInputs(input.positionOS.xyz);
 				output.positionCS = vertexInput.positionCS;

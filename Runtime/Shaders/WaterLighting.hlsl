@@ -50,7 +50,7 @@ half3 Highlights(half3 positionWS, half roughness, half3 normalWS, half3 viewDir
 //Soft Shadows
 half SoftShadows(float2 screenUV, float3 positionWS, half3 viewDir, half depth)
 {
-#if _MAIN_LIGHT_SHADOWS || _MAIN_LIGHT_SHADOWS_CASCADE
+#ifdef MAIN_LIGHT_CALCULATE_SHADOWS
     half2 jitterUV = screenUV * _ScreenParams.xy * _DitherPattern_TexelSize.xy;
 	half shadowAttenuation = 0;
 
@@ -65,11 +65,15 @@ half SoftShadows(float2 screenUV, float3 positionWS, half3 viewDir, half depth)
         float3 jitterTexture = SAMPLE_TEXTURE2D(_DitherPattern, sampler_DitherPattern, jitterUV + i * _ScreenParams.xy).xyz * 2 - 1;
 	    half3 j = jitterTexture.xzy * depthFrac * i * 0.1;
 	    float3 lightJitter = (positionWS + j) + (lightOffset * (i + jitterTexture.y));
-	    //shadowAttenuation += SAMPLE_TEXTURE2D_SHADOW(_MainLightShadowmapTexture, sampler_MainLightShadowmapTexture, TransformWorldToShadowCoord(lightJitter));
-	    shadowAttenuation += MainLightRealtimeShadow(TransformWorldToShadowCoord(lightJitter)) * loopDiv;
+	    shadowAttenuation += SAMPLE_TEXTURE2D_SHADOW(_MainLightShadowmapTexture, sampler_MainLightShadowmapTexture, TransformWorldToShadowCoord(lightJitter)) * loopDiv;
+	    //shadowAttenuation += MainLightRealtimeShadow(TransformWorldToShadowCoord(lightJitter)) * loopDiv;
 	}
     shadowAttenuation = BEYOND_SHADOW_FAR(TransformWorldToShadowCoord(positionWS)) ? 1.0 : shadowAttenuation;
-    return lerp(shadowAttenuation, 1, GetMainLightShadowFade(positionWS));
+
+    half fade = GetShadowFade(positionWS);
+    //half fade = GetMainLightShadowFade(positionWS);
+    
+    return lerp(shadowAttenuation, 1, fade);
 #else
     return 1;
 #endif
@@ -100,7 +104,7 @@ half3 SampleReflections(half3 normalWS, half3 viewDirectionWS, half2 screenUV, h
     half3 viewNormal = mul(normalWS, (float3x3)GetWorldToViewMatrix()).xyz;
     half3 reflectVector = reflect(-viewDir, viewNormal);
 
-    half2 reflectionUV = screenUV + normalWS.zx * 0.25;// * half2(0.2, 0.5);
+    half2 reflectionUV = screenUV + normalWS.zx * half2(0.05, 0.2);
     reflection += SAMPLE_TEXTURE2D_LOD(_PlanarReflectionTexture, sampler_ScreenTextures_linear_clamp, reflectionUV, 6 * roughness).rgb;//planar reflection
 #endif
     //do backup

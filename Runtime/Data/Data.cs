@@ -27,19 +27,21 @@ namespace WaterSystem
             
             // Visual Surface
             public float _waterMaxVisibility = 5.0f;
-            public Color _absorptionColor = new(0.2f, 0.6f, 0.8f);
-            public Color _scatteringColor = new(0.0f, 0.085f, 0.1f);
+            public Color _absorptionColor = new Color(0.2f, 0.6f, 0.8f);
+            public Color _scatteringColor = new Color(0.0f, 0.085f, 0.1f);
             
             // Waves
-            public List<Wave> _waves = new();
+            public List<Wave> _waves = new List<Wave>();
             public bool _customWaves;
-            public BasicWaves _basicWaveSettings = new(0.5f, 45.0f, 5.0f);
+            public BasicWaves _basicWaveSettings = new BasicWaves(0.5f, 45.0f, 5.0f);
+            public AnimationCurve _waveFoamProfile = AnimationCurve.Linear(0.02f, 0f, 0.98f, 1f);
             
             // Micro(surface) Waves
             public float _microWaveIntensity = 0.25f;
             
             // Shore
             public float _foamIntensity = 1.0f;
+            public AnimationCurve _shoreFoamProfile = AnimationCurve.Linear(0.02f, 1f, 0.98f, 0f);
         }
         
         /// <summary>

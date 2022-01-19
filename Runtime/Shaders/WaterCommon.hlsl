@@ -164,8 +164,10 @@ Varyings WaveVertexOperations(Varyings input)
     input.positionWS.y += pow(saturate((-waterDepth + 1.5) * 0.4), 2);
 
 	//Gerstner here
+	half opacity = 1;// saturate(waterDepth * 0.1 + 0.05);
+	
 	WaveStruct wave;
-	SampleWaves(input.positionWS, saturate((waterDepth * 0.1 + 0.05)), wave);
+	SampleWaves(input.positionWS, opacity, wave);
 	input.normalWS = wave.normal;
     input.positionWS += wave.position;
 
@@ -239,26 +241,24 @@ void InitializeSurfaceData(inout WaterInputData input, out WaterSurfaceData surf
 	float depth = input.depth;
 	
 	// Foam
-	half3 foamMap = SAMPLE_TEXTURE2D(_FoamMap, sampler_FoamMap,  input.detailUV.zw).rgb; //r=thick, g=medium, b=light
-	half depthEdge = saturate(depth.x * 20);
-	half waveFoam = saturate(additionalData.w);//saturate(additionalData.z - 0.5 * 0.5); // wave tips
-	half edgeFoam = pow(saturate(1 - min(depth, input.waterBufferB.b) * 0.25 - 0.5) * depthEdge, 2.4) * 6.8;
-	half foamBlendMask = waveFoam + edgeFoam + input.waterBufferA.r;// max(max(waveFoam, edgeFoam), input.waterFX.r * 2);
-
-	foamBlendMask += foamMap.x * 0.2 - 0.1;
-
+	half depthEdge = min(saturate(depth.x), input.waterBufferB.b * 0.25 + 0.5);
+	//half edgeFoam = pow(saturate(1 - min(depth, input.waterBufferB.b) * 0.25 - 0.5) * depthEdge, 2.4) * 6.8;
+	half3 foamShoreRamp = SAMPLE_TEXTURE2D(_BoatAttack_RampTexture, sampler_BoatAttack_Linear_Clamp_RampTexture,  depthEdge).r;
+	half3 foamWaveRamp = SAMPLE_TEXTURE2D(_BoatAttack_RampTexture, sampler_BoatAttack_Linear_Clamp_RampTexture,  additionalData.w).g;
+	
+	half foamBlendMask = max(foamWaveRamp, foamShoreRamp) + input.waterBufferA.r;// + edgeFoam + input.waterBufferA.r;// max(max(waveFoam, edgeFoam), input.waterFX.r * 2);
 	foamBlendMask += -1 + _BoatAttack_water_FoamIntensity;
 	
-	half a = saturate(foamBlendMask * 2 - 0.25);
-	half b = saturate(foamBlendMask * 5 - 2);
-	half c = saturate(foamBlendMask * 8 - 7);
+	
+	half4 mask = half4(0, 0, 0, 0);
+	mask.r = saturate(foamBlendMask * 3 - 2);
+	mask.g = saturate(foamBlendMask * 3 - 1) - mask.r;
+	mask.b = saturate(foamBlendMask * 3) - mask.g - mask.r;
+	mask.a = 1 - mask.r - mask.g - mask.b;
+	
+	mask = saturate(mask);
 
-	half aa = a * (2 - (b + c));
-	half bb = b * (2 - (c + a));
-	half cc = c * (2 - (b * a));
-
-	half3 mask = saturate(half3(cc, bb, aa) * half3(1, 0.5, 0.25));
-
+	half4 foamMap = half4(SAMPLE_TEXTURE2D(_FoamMap, sampler_FoamMap,  input.detailUV.zw).rgb, 0); //r=thick, g=medium, b=light
 	surfaceData.foamMask = length(foamMap * mask);
 	
 	//surfaceData.foamMask = saturate(length(foamMap * pow(foamBlendMask, 1) /* foamBlend */) * 1.5 - 2 + _BoatAttack_water_FoamIntensity) + input.waterBufferA.r * 0.25;
@@ -276,7 +276,7 @@ float3 WaterShading(WaterInputData input, WaterSurfaceData surfaceData, float4 a
 	
     // Lighting
 	Light mainLight = GetMainLight(TransformWorldToShadowCoord(input.positionWS));
-    half shadow = SoftShadows(screenUV, input.positionWS, input.viewDirectionWS, input.depth);
+    half volumeShadow = SoftShadows(screenUV, input.positionWS, input.viewDirectionWS, input.depth);
     half3 GI = SampleSH(input.normalWS);
 
     // SSS
@@ -285,14 +285,14 @@ float3 WaterShading(WaterInputData input, WaterSurfaceData surfaceData, float4 a
 	
     BRDFData brdfData;
     half alpha = 1;
-    InitializeBRDFData(half3(0, 0, 0), 0, half3(1, 1, 1), 0.9 - (fresnelTerm * 0.25), alpha, brdfData);
-	half3 spec = DirectBDRF(brdfData, input.normalWS, mainLight.direction, input.viewDirectionWS) * mainLight.color * shadow;
+    InitializeBRDFData(half3(0, 0, 0), 0, half3(1, 1, 1), 0.95, alpha, brdfData);
+	half3 spec = DirectBDRF(brdfData, input.normalWS, mainLight.direction, input.viewDirectionWS) * mainLight.color * mainLight.shadowAttenuation;
 
 	// Foam
-	surfaceData.foam *= GI + directLighting * 0.75 * shadow;
+	surfaceData.foam *= (GI + directLighting * mainLight.shadowAttenuation) * 3;
 	
 	// SSS
-    half3 sss = directLighting * shadow + GI;
+    half3 sss = directLighting * volumeShadow + GI;
     sss *= Scattering(input.depth);
 
 	// Reflections

@@ -1,4 +1,5 @@
 using System;
+using Unity.Mathematics;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -15,18 +16,22 @@ namespace WaterSystem
         [HideInInspector, SerializeField] private Mesh mesh;
         [HideInInspector, SerializeField] private Material debugMaterial;
         [HideInInspector, SerializeField] private Shader shader;
+        private float[,] _depthValues;
         private Camera _depthCam;
         private Material _material;
 
         public int size = 250;
         public int tileRes = 1024;
+
+        public float range = 20;
+        public float offset = 4;
         public LayerMask mask = new LayerMask();
 
         #if UNITY_EDITOR
         [ContextMenu("Capture Depth")]
         public void CaptureDepth()
         {
-            DepthBaking.CaptureDepth(tileRes, size, transform, mask);
+            DepthBaking.CaptureDepth(tileRes, size, transform, mask, range, offset);
             Current = this;
         }
         #endif
@@ -43,6 +48,7 @@ namespace WaterSystem
                 try
                 {
                     depthTile = AssetDatabase.LoadAssetAtPath<Texture2D>($"{path}/{file}");
+                    StoreDepthValues();
                 }
                 catch (Exception e)
                 {
@@ -54,9 +60,38 @@ namespace WaterSystem
                 #endif
             }
         }
+        
+        public float GetDepth(float2 UVPos)
+        {
+            var depth = 1 - _depthValues[(int)(UVPos.x * tileRes), (int)(UVPos.y * tileRes)];
+            return -(depth * (range + offset) - offset);
+        }
+
+        public float GetDepth(Vector3 position)
+        {
+            var UVPos = GetUVPositon(position) * tileRes;
+            return GetDepth(UVPos);
+        }
+
+        private float2 GetUVPositon(Vector3 position) { return GetUVPositon(new float2(position.x, position.z)); }
+        
+        private float2 GetUVPositon(Vector2 position) { return GetUVPositon(position); }
+        
+        private float2 GetUVPositon(float2 position)
+        {
+            var goPos = transform.position;
+            position.x -= goPos.x;
+            position.y -= goPos.z;
+            position *= 1f / size;
+            position += 0.5f;
+            
+            return math.clamp(position.yx, 0, 0.999f);
+        }
 
         private void LateUpdate()
         {
+            StoreDepthValues();
+            
             if (shader && !_material) _material = CoreUtils.CreateEngineMaterial(shader);
 
             if (!depthTile || !_material) return;
@@ -66,8 +101,27 @@ namespace WaterSystem
             Graphics.DrawMesh(mesh, matrix, _material, 0);
         }
 
+        private void StoreDepthValues()
+        {
+            if ((_depthValues == null || _depthValues.Length != tileRes * tileRes) && depthTile)
+            {
+                _depthValues = new float[tileRes, tileRes];
+                
+                var pixels = depthTile.GetPixels();
+                for (var i = 0; i < depthTile.width; i++)
+                {
+                    for (var j = 0; j < depthTile.height; j++)
+                    {
+                        var pixel = pixels[(i * depthTile.width) + j];
+                        _depthValues[i, j] = pixel.r;
+                    }
+                }
+            }
+        }
+
         private void OnDrawGizmosSelected()
         {
+            #if UNITY_EDITOR
             Gizmos.color = Color.cyan;
             Gizmos.DrawWireCube(transform.position, new Vector3(size, 0f, size));
             if (mesh && depthTile)
@@ -78,6 +132,32 @@ namespace WaterSystem
                 debugMaterial.SetPass(0);
                 Graphics.DrawMeshNow(mesh, matrix);
             }
+
+            if (_depthValues != null && _depthValues.Length != 0)
+            {
+                const float dist = 100f;
+                const int count = 10;
+
+                var pos = Camera.current.transform.position;
+                
+                for (var i = 0; i < count; i++)
+                {
+                    for (var j = 0; j < count; j++)
+                    {
+                        var flatPos = pos + new Vector3(i - count / 2, 0f, j - count / 2) * (dist / count);
+                        flatPos.y = transform.position.y;
+                        var UVPos = GetUVPositon(flatPos);
+                        var depth = GetDepth(UVPos);
+                        var alpha = Mathf.InverseLerp(dist/2f, 0f, Vector3.Distance(pos, flatPos));
+                        GUIStyle style = new GUIStyle(EditorStyles.label);
+                        style.normal.textColor = Handles.color = new Color(1f, 1f, 1f, alpha);
+                        Handles.Label(flatPos, $"{depth:F4}\n(x:{UVPos.x:F4}, z:{UVPos.y:F4})", style);
+                        Handles.DrawDottedLine(flatPos, flatPos + Vector3.up * depth, 5f);
+                        Handles.DrawSolidDisc(flatPos + Vector3.up * depth, Vector3.up, 0.1f);
+                    }
+                }
+            }
+            #endif
         }
     }
 }

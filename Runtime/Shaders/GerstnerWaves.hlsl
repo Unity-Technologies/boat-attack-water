@@ -49,6 +49,9 @@ WaveStruct GerstnerWave(half2 pos, float waveCountMulti, half amplitude, half2 d
 	half cosCalc = cos(calc); // cosine version(used for horizontal undulation)
 	half sinCalc = sin(calc); // sin version(used for vertical undulation)
 
+	// foam height raw
+	half a = (sinCalc + 1) * 0.5;
+	
 	// calculate the offsets for the current point
 	wave.xz = qi * amplitude * windDir.xy * cosCalc;
 	wave.y = ((sinCalc * amplitude)) * waveCountMulti;// the height is divided by the number of waves
@@ -62,9 +65,8 @@ WaveStruct GerstnerWave(half2 pos, float waveCountMulti, half amplitude, half2 d
 	////////////////////////////////assign to output///////////////////////////////
 	waveOut.position = wave * saturate(amplitude * 10000);
 	waveOut.normal = (n.xzy * waveCountMulti);
-	half a = (sinCalc + 1) * 0.5;
-	half b = dot(wave.xz, windDir);
-	waveOut.foam = saturate(a * b);
+	half b = dot(n.xy * 2, -windDir);
+	waveOut.foam = saturate(a + b);
 
 	return waveOut;
 }
@@ -111,10 +113,11 @@ inline void SampleWaves(float3 position, half opacity, out WaveStruct waveOut)
 
 		waveOut.position += wave.position; // add the position
 		waveOut.normal += wave.normal; // add the normal
-		waveOut.foam += wave.foam * opacity;
+		waveOut.foam += wave.foam;
 	}
-	waveOut.position *= opacityMask;
+	waveOut.position *= opacity;// opacityMask;
 	waveOut.normal *= half3(opacity, 1, opacity);
+	waveOut.foam *= waveCountMulti * opacity;
 }
 
 void Gerstner_SG_test_half(float2 pos, half amp, half2 dir, half length, out float3 position, out float3 normal)

@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Security.Cryptography;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Serialization;
 using Unity.Mathematics;
@@ -9,21 +11,35 @@ namespace UnityEngine.Rendering.Universal
     public class PlanarReflections : MonoBehaviour
     {
         [Serializable]
-        public enum ResolutionMulltiplier
+        public enum ResolutionModes
         {
             Full,
             Half,
             Third,
-            Quarter
+            Quarter,
+            Multiplier,
+            Custom,
+        }
+
+        [Serializable]
+        public enum RendererMode
+        {
+            Match,
+            Static,
+            Offset
         }
 
         [Serializable]
         public class PlanarReflectionSettings
         {
-            public ResolutionMulltiplier m_ResolutionMultiplier = ResolutionMulltiplier.Third;
+            public ResolutionModes m_ResolutionMode = ResolutionModes.Third;
+            public float m_ResolutionMultipliter = 1.0f;
+            public int2 m_ResolutionCustom = new int2(320, 180);
             public float m_ClipPlaneOffset = 0.07f;
             public LayerMask m_ReflectLayers = -1;
             public bool m_Shadows;
+            public RendererMode m_RendererMode;
+            public int m_RendererIndex;
         }
 
         public static PlanarReflectionSettings m_settings = new PlanarReflectionSettings();
@@ -32,7 +48,7 @@ namespace UnityEngine.Rendering.Universal
         public static float m_planeOffset;
 
         private static Camera _reflectionCamera;
-        private static RenderTexture _reflectionTexture;
+        private static Dictionary<Camera, RenderTexture> _reflectionTextures = new Dictionary<Camera, RenderTexture>();
         private static readonly int _planarReflectionTextureId = Shader.PropertyToID("_PlanarReflectionTexture");
 
         private int2 _oldReflectionTextureSize;
@@ -62,10 +78,12 @@ namespace UnityEngine.Rendering.Universal
                 _reflectionCamera.targetTexture = null;
                 SafeDestroy(_reflectionCamera.gameObject);
             }
-            if (_reflectionTexture)
+
+            foreach (var textures in _reflectionTextures)
             {
-                RenderTexture.ReleaseTemporary(_reflectionTexture);
+                RenderTexture.ReleaseTemporary(textures.Value);
             }
+            _reflectionTextures.Clear();
         }
 
         private static void SafeDestroy(Object obj)
@@ -89,6 +107,18 @@ namespace UnityEngine.Rendering.Universal
             if (dest.gameObject.TryGetComponent(out UniversalAdditionalCameraData camData))
             {
                 camData.renderShadows = m_settings.m_Shadows; // turn off shadows for the reflection camera
+                switch (m_settings.m_RendererMode)
+                {
+                    case RendererMode.Static:
+                        camData.SetRenderer(m_settings.m_RendererIndex);
+                        break;
+                    case RendererMode.Offset:
+                        //TODO need API to get current index
+                        break;
+                    case RendererMode.Match:
+                    default:
+                        break;
+                }
             }
         }
 
@@ -163,16 +193,18 @@ namespace UnityEngine.Rendering.Universal
 
         private static float GetScaleValue()
         {
-            switch(m_settings.m_ResolutionMultiplier)
+            switch(m_settings.m_ResolutionMode)
             {
-                case ResolutionMulltiplier.Full:
+                case ResolutionModes.Full:
                     return 1f;
-                case ResolutionMulltiplier.Half:
+                case ResolutionModes.Half:
                     return 0.5f;
-                case ResolutionMulltiplier.Third:
+                case ResolutionModes.Third:
                     return 0.33f;
-                case ResolutionMulltiplier.Quarter:
+                case ResolutionModes.Quarter:
                     return 0.25f;
+                case ResolutionModes.Multiplier:
+                    return m_settings.m_ResolutionMultipliter;
                 default:
                     return 0.5f; // default to half res
             }
@@ -215,21 +247,41 @@ namespace UnityEngine.Rendering.Universal
 
         private static void PlanarReflectionTexture(Camera cam)
         {
-            if (_reflectionTexture == null)
+            var dimensions = ReflectionResolution(cam, UniversalRenderPipeline.asset.renderScale);
+            
+            if (!_reflectionTextures.ContainsKey(cam))
             {
-                var res = ReflectionResolution(cam, UniversalRenderPipeline.asset.renderScale);
-                bool useHdr10 = RenderingUtils.SupportsRenderTextureFormat(RenderTextureFormat.RGB111110Float);
-                RenderTextureFormat hdrFormat = useHdr10 ? RenderTextureFormat.RGB111110Float : RenderTextureFormat.DefaultHDR;
-                _reflectionTexture = RenderTexture.GetTemporary(res.x, res.y, 24,
-                    GraphicsFormatUtility.GetGraphicsFormat(hdrFormat, true));
+                _reflectionTextures.Add(cam, CreateTexture(dimensions));
             }
-            _reflectionCamera.targetTexture =  _reflectionTexture;
+            else if(_reflectionTextures[cam] == null)
+            {
+                _reflectionTextures[cam] = CreateTexture(dimensions);
+            }
+            else if (_reflectionTextures[cam].width != dimensions.x)
+            {
+                RenderTexture.ReleaseTemporary(_reflectionTextures[cam]);
+                _reflectionTextures[cam] = CreateTexture(dimensions);
+            }
+            _reflectionCamera.targetTexture =  _reflectionTextures[cam];
+        }
+
+        private static RenderTexture CreateTexture(int2 res)
+        {
+            Debug.Log("creating new RT");
+            bool useHdr10 = RenderingUtils.SupportsRenderTextureFormat(RenderTextureFormat.RGB111110Float);
+            RenderTextureFormat hdrFormat = useHdr10 ? RenderTextureFormat.RGB111110Float : RenderTextureFormat.DefaultHDR;
+            return RenderTexture.GetTemporary(res.x, res.y, 24,
+                GraphicsFormatUtility.GetGraphicsFormat(hdrFormat, true));
         }
 
         private static int2 ReflectionResolution(Camera cam, float scale)
         {
-            var x = (int)(cam.pixelWidth * scale * GetScaleValue());
-            var y = (int)(cam.pixelHeight * scale * GetScaleValue());
+            if (m_settings.m_ResolutionMode == ResolutionModes.Custom) return m_settings.m_ResolutionCustom;
+            
+            scale *= GetScaleValue();
+            var x = (int)(cam.pixelWidth * scale);
+            var y = (int)(cam.pixelHeight * scale);
+            
             return new int2(x, y);
         }
 
@@ -239,6 +291,9 @@ namespace UnityEngine.Rendering.Universal
             if (camera.cameraType == CameraType.Reflection || camera.cameraType == CameraType.Preview)
                 return;
 
+            if (m_settings == null)
+                return;
+            
             UpdateReflectionCamera(camera, transform); // create reflected camera
             PlanarReflectionTexture(camera); // create and assign RenderTexture
 
@@ -249,7 +304,7 @@ namespace UnityEngine.Rendering.Universal
             UniversalRenderPipeline.RenderSingleCamera(context, _reflectionCamera); // render planar reflections
 
             data.Restore(); // restore the quality settings
-            Shader.SetGlobalTexture(_planarReflectionTextureId, _reflectionTexture); // Assign texture to water shader
+            Shader.SetGlobalTexture(_planarReflectionTextureId, _reflectionTextures[camera]); // Assign texture to water shader
         }
 
         class PlanarReflectionSettingData

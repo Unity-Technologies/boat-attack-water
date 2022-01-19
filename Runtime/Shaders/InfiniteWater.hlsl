@@ -35,8 +35,9 @@ InfinitePlane WorldPlane(float4 viewDirection, float3 positionWS)
 {
     InfinitePlane output = (InfinitePlane)0;
 
+    half3 offset = float3(0, _WaveHeight - _MaxWaveHeight, 0);
     // Line information
-    float3 lineOrigin = _WorldSpaceCameraPos;
+    float3 lineOrigin = _WorldSpaceCameraPos - offset;
     float3 lineDir = normalize(positionWS - _WorldSpaceCameraPos);
  
     // Shape information
@@ -46,8 +47,8 @@ InfinitePlane WorldPlane(float4 viewDirection, float3 positionWS)
     // Intersect information
     float intersect = intersectPlane(lineOrigin, lineDir, shapeOrigin, shapeUpDir);
 
-        float3 pos = lineOrigin - shapeOrigin + lineDir * intersect;
-        output.positionWS = pos;
+    float3 pos = lineOrigin - shapeOrigin + lineDir * intersect;
+    output.positionWS = pos + offset;
 
     // re-construct depth
     float4 clipPos = TransformWorldToHClip(output.positionWS);

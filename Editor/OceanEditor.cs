@@ -14,23 +14,22 @@ namespace WaterSystem
         public static class Styles
         {
             // Color settings
-            public static GUIContent maxVisibility = new("Max Visibility");
-            public static GUIContent absoptionColor = new("Absorption");
-            public static GUIContent scatteringColor = new("Scattering");
+            public static GUIContent maxVisibility          = new GUIContent("Max Visibility");
+            public static GUIContent absoptionColor         = new GUIContent("Absorption");
+            public static GUIContent scatteringColor        = new GUIContent("Scattering");
             // Wave
-            public static GUIContent basicWaveCount = new("Layers");
-            public static GUIContent basicWaveAmp = new("Amplitude");
-            public static GUIContent basicWaveDir = new("Direction");
-            public static GUIContent basicWaveWavelength = new("Wavelength");
-            public static GUIContent microWaveIntenisty = new("Intensity");
+            public static GUIContent basicWaveCount         = new GUIContent("Layers");
+            public static GUIContent basicWaveAmp           = new GUIContent("Amplitude");
+            public static GUIContent basicWaveDir           = new GUIContent("Direction");
+            public static GUIContent basicWaveWavelength    = new GUIContent("Wavelength");
+            public static GUIContent microWaveIntenisty     = new GUIContent("Intensity");
+            public static GUIContent waveFoamProfile     = new GUIContent("Profile");
             // Reflection
-            public static GUIContent refType = new("Mode");
-            public static GUIContent cubemap = new("Cubemap");
-            public static GUIContent planarLayers = new("Culling Mask");
-            public static GUIContent planarShadows = new("Shadows");
-            public static GUIContent planarRes = new("Resolution");
+            public static GUIContent refType                = new GUIContent("Mode");
+            public static GUIContent cubemap                = new GUIContent("Cubemap");
             // Shore
-            public static GUIContent foamIntensity = new("Foam Amount");
+            public static GUIContent foamIntensity          = new GUIContent("Foam Amount");
+            public static GUIContent foamProfile          = new GUIContent("Foam Profile");
         }
 
         // color settings
@@ -45,17 +44,18 @@ namespace WaterSystem
         private SerializedProperty basicWaveWavelength;
 
         private SerializedProperty microWaveIntensity;
+        
+        private SerializedProperty waveFoamProfile;
         // reflection
         private SerializedProperty refelctionType;
 
         private SerializedProperty cubemap;
         
-        private SerializedProperty planarLayers;
-        private SerializedProperty planarShadows;
-        private SerializedProperty planarRes;
+        private SerializedProperty planarSettings;
         // flow
         // shore
         private SerializedProperty foamIntensity;
+        private SerializedProperty foamProfile;
         // volume scattering
         // caustics
         // underwater
@@ -87,16 +87,16 @@ namespace WaterSystem
             basicWaveWavelength = basicWaves.FindPropertyRelative(nameof(Data.BasicWaves.wavelength));
             
             microWaveIntensity = settings.FindPropertyRelative(nameof(Data.OceanSettings._microWaveIntensity));
+            
+            waveFoamProfile = settings.FindPropertyRelative(nameof(Data.OceanSettings._waveFoamProfile));
             // Reflection Settings
             refelctionType = settings.FindPropertyRelative(nameof(Data.OceanSettings.refType));
             cubemap = settings.FindPropertyRelative(nameof(Data.OceanSettings.cubemapRefType));
-            var planarSettings = settings.FindPropertyRelative(nameof(Data.OceanSettings.planarSettings));
-            planarLayers = planarSettings.FindPropertyRelative(nameof(PlanarReflections.PlanarReflectionSettings.m_ReflectLayers));
-            planarRes = planarSettings.FindPropertyRelative(nameof(PlanarReflections.PlanarReflectionSettings.m_ResolutionMultiplier));
-            planarShadows = planarSettings.FindPropertyRelative(nameof(PlanarReflections.PlanarReflectionSettings.m_Shadows));
-            
+            planarSettings = settings.FindPropertyRelative(nameof(Data.OceanSettings.planarSettings));
+
             // Shore
             foamIntensity = settings.FindPropertyRelative(nameof(Data.OceanSettings._foamIntensity));
+            foamProfile = settings.FindPropertyRelative(nameof(Data.OceanSettings._shoreFoamProfile));
         }
 
         public override void OnInspectorGUI()
@@ -154,6 +154,10 @@ namespace WaterSystem
             EditorGUI.indentLevel++;
             EditorGUILayout.Slider(microWaveIntensity, 0.0f, 2f, Styles.microWaveIntenisty);
             EditorGUI.indentLevel--;
+            EditorGUILayout.LabelField("Foam", EditorStyles.boldLabel);
+            EditorGUI.indentLevel++;
+            EditorGUILayout.PropertyField(waveFoamProfile, Styles.waveFoamProfile);
+            EditorGUI.indentLevel--;
         }
 
         void DoReflection()
@@ -169,9 +173,7 @@ namespace WaterSystem
                     EditorGUILayout.HelpBox("Currently there are no settings for this mode.", MessageType.Info);
                     break;
                 case Data.ReflectionType.PlanarReflection:
-                    EditorGUILayout.PropertyField(planarLayers, Styles.planarLayers);
-                    EditorGUILayout.PropertyField(planarRes, Styles.planarRes);
-                    EditorGUILayout.PropertyField(planarShadows, Styles.planarShadows);
+                    EditorGUILayout.PropertyField(planarSettings);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
@@ -188,6 +190,7 @@ namespace WaterSystem
         void DoShore()
         {
             EditorGUILayout.Slider(foamIntensity, 0f, 4f, Styles.foamIntensity);
+            EditorGUILayout.PropertyField(foamProfile, Styles.foamProfile);
         }
 
         void DoSection(Sections section)
