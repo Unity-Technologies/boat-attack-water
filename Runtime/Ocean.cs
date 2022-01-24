@@ -300,9 +300,7 @@ namespace WaterSystem
             if(_rampTexture == null)
                 _rampTexture = new Texture2D(rampRes,  pixelHeight, GraphicsFormat.R8G8B8A8_SRGB, TextureCreationFlags.None);
             _rampTexture.wrapMode = TextureWrapMode.Clamp;
-
-            //var defaultFoamRamp = resources.defaultFoamRamp;
-
+            
             // Foam shore
             var cols = new Color[rampRes * pixelHeight];
             for (var i = 0; i < rampRes; i++)
@@ -315,6 +313,12 @@ namespace WaterSystem
             {
                 var val = settingsData._waveFoamProfile.Evaluate(i / (float)rampRes);
                 cols[i].g = Mathf.LinearToGammaSpace(val);
+            }
+            // Depth Gerstner waves
+            for (var i = 0; i < rampRes; i++)
+            {
+                var val = settingsData._waveDepthProfile.Evaluate(i / (float)rampRes);
+                cols[i].b = Mathf.LinearToGammaSpace(val);
             }
             
             _rampTexture.SetPixels(cols);

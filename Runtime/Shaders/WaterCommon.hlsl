@@ -40,23 +40,19 @@ half3 DebugWaterFX(half3 input, half4 waterFX, half screenUV)
 
 half3 Scattering(half depth)
 {
-	half grad = saturate(exp2(-depth * DEPTH_MULTIPLIER));
-
+	const half grad = saturate(exp2(-depth * DEPTH_MULTIPLIER));
 	return _ScatteringColor * (1-grad);
-	
-	//return SAMPLE_TEXTURE2D(_AbsorptionScatteringRamp, sampler_AbsorptionScatteringRamp, half2(depth * DEPTH_MULTIPLIER, 0.375h)).rgb;
 }
 
 half3 Absorption(half depth)
 {
 	return saturate(exp(-depth * DEPTH_MULTIPLIER * 10 * (1-_AbsorptionColor)));	
-	//return SAMPLE_TEXTURE2D(_AbsorptionScatteringRamp, sampler_AbsorptionScatteringRamp, half2(depth * DEPTH_MULTIPLIER, 0.0h)).rgb;
 }
 
 float2 AdjustedDepth(half2 uvs, half4 additionalData)
 {
-	float rawD = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, sampler_ScreenTextures_linear_clamp, uvs);
-	float d = LinearEyeDepth(rawD, _ZBufferParams);
+	const float rawD = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, sampler_ScreenTextures_linear_clamp, uvs);
+	const float d = LinearEyeDepth(rawD, _ZBufferParams);
 	float x = d * additionalData.x - additionalData.y;
 
 	if(d > _ProjectionParams.z)// TODO might be cheaper alternative
@@ -70,7 +66,7 @@ float2 AdjustedDepth(half2 uvs, half4 additionalData)
 
 float AdjustWaterTextureDepth(float input)
 {
-	return  max(0, (1-input) * 21 - 4);
+	return  max(0, (1-input) * 20 - 4);
 }
 
 float WaterTextureDepthVert(float2 uv)
@@ -85,18 +81,17 @@ float WaterTextureDepth(float2 uv)
 
 float3 WaterDepth(float3 positionWS, half4 additionalData, half2 screenUVs)// x = seafloor depth, y = water depth
 {
-	float3 outDepth = 0;
-	outDepth.xz = AdjustedDepth(screenUVs, additionalData);
-	float wd = WaterTextureDepth(screenUVs);
-	outDepth.y = wd + positionWS.y;
-	return outDepth;
+	float3 out_depth;
+	out_depth.xz = AdjustedDepth(screenUVs, additionalData);
+	const float wd = WaterTextureDepth(screenUVs);
+	out_depth.y = wd + positionWS.y;
+	return out_depth;
 }
 
 half3 Refraction(half2 distortion, half depth, half edgeFade)
 {
 	half3 output = SAMPLE_TEXTURE2D_LOD(_CameraOpaqueTexture, sampler_CameraOpaqueTexture_linear_clamp, distortion, depth * 0.25).rgb;
 	output *= max(Absorption(depth), 1-edgeFade);
-	//return Absorption(depth);
 	return output;
 }
 
@@ -160,11 +155,12 @@ Varyings WaveVertexOperations(Varyings input)
 	screenUV.xyz /= screenUV.w;
 
     // shallows mask
-    half waterDepth = WaterTextureDepthVert(screenUV);
-    input.positionWS.y += pow(saturate((-waterDepth + 1.5) * 0.4), 2);
+    half waterDepth = WaterBufferBVert(screenUV).b;// WaterTextureDepthVert(screenUV);
+    //input.positionWS.y += pow(saturate((-waterDepth + 1.5) * 0.4), 2);
 
 	//Gerstner here
-	half opacity = 1;// saturate(waterDepth * 0.1 + 0.05);
+	half depthWaveRamp = SAMPLE_TEXTURE2D_LOD(_BoatAttack_RampTexture, sampler_BoatAttack_Linear_Clamp_RampTexture,  waterDepth, 0).b;
+	half opacity = depthWaveRamp;// saturate(waterDepth * 0.1 + 0.05);
 	
 	WaveStruct wave;
 	SampleWaves(input.positionWS, opacity, wave);

@@ -24,6 +24,7 @@ namespace WaterSystem
             public static GUIContent basicWaveWavelength    = new GUIContent("Wavelength");
             public static GUIContent microWaveIntenisty     = new GUIContent("Intensity");
             public static GUIContent waveFoamProfile     = new GUIContent("Profile");
+            public static GUIContent waveDepthProfile     = new GUIContent("Depth Multiplier");
             // Reflection
             public static GUIContent refType                = new GUIContent("Mode");
             public static GUIContent cubemap                = new GUIContent("Cubemap");
@@ -46,6 +47,8 @@ namespace WaterSystem
         private SerializedProperty microWaveIntensity;
         
         private SerializedProperty waveFoamProfile;
+        
+        private SerializedProperty waveDepthProfile;
         // reflection
         private SerializedProperty refelctionType;
 
@@ -89,6 +92,8 @@ namespace WaterSystem
             microWaveIntensity = settings.FindPropertyRelative(nameof(Data.OceanSettings._microWaveIntensity));
             
             waveFoamProfile = settings.FindPropertyRelative(nameof(Data.OceanSettings._waveFoamProfile));
+            
+            waveDepthProfile = settings.FindPropertyRelative(nameof(Data.OceanSettings._waveDepthProfile));
             // Reflection Settings
             refelctionType = settings.FindPropertyRelative(nameof(Data.OceanSettings.refType));
             cubemap = settings.FindPropertyRelative(nameof(Data.OceanSettings.cubemapRefType));
@@ -148,6 +153,8 @@ namespace WaterSystem
                 EditorGUILayout.Slider(basicWaveDir, 0f, 360f, Styles.basicWaveDir);
                 EditorGUILayout.Slider(basicWaveWavelength, 0.5f, 100f, Styles.basicWaveWavelength);
             }
+
+            EditorGUILayout.PropertyField(waveDepthProfile, Styles.waveDepthProfile);
 
             EditorGUI.indentLevel--;
             EditorGUILayout.LabelField("Micro Waves", EditorStyles.boldLabel);

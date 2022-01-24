@@ -13,8 +13,10 @@ namespace WaterSystem
         {
             private static int m_BufferATexture = Shader.PropertyToID("_WaterBufferA");
             private static int m_BufferBTexture = Shader.PropertyToID("_WaterBufferB");
+            private static int m_MockDepthTexture = Shader.PropertyToID("_DepthBufferMock"); // TODO remove once bug is fixed
             private RenderTargetIdentifier m_BufferTargetA = new RenderTargetIdentifier(m_BufferATexture);
             private RenderTargetIdentifier m_BufferTargetB = new RenderTargetIdentifier(m_BufferBTexture);
+            private RenderTargetIdentifier m_BufferDepth = new RenderTargetIdentifier(m_MockDepthTexture); // TODO also remove
 
             
             private const string k_RenderWaterFXTag = "Render Water FX";
@@ -53,9 +55,10 @@ namespace WaterSystem
                 // get a temp RT for rendering into
                 cmd.GetTemporaryRT(m_BufferATexture, rtd, FilterMode.Bilinear);
                 cmd.GetTemporaryRT(m_BufferBTexture, rtd, FilterMode.Bilinear);
+                cmd.GetTemporaryRT(m_MockDepthTexture, rtd, FilterMode.Point);
                 
                 RenderTargetIdentifier[] multiTargets = { m_BufferTargetA, m_BufferTargetB };
-                ConfigureTarget(multiTargets, BuiltinRenderTextureType.None);
+                ConfigureTarget(multiTargets, m_MockDepthTexture);
                 // clear the screen with a specific color for the packed data
                 ConfigureClear(ClearFlag.Color, m_ClearColor);
                 
@@ -88,6 +91,7 @@ namespace WaterSystem
                 // since the texture is used within the single cameras use we need to cleanup the RT afterwards
                 cmd.ReleaseTemporaryRT(m_BufferATexture);
                 cmd.ReleaseTemporaryRT(m_BufferBTexture);
+                cmd.ReleaseTemporaryRT(m_MockDepthTexture);
             }
         }
 

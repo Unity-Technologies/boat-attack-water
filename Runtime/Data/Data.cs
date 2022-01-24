@@ -35,6 +35,8 @@ namespace WaterSystem
             public bool _customWaves;
             public BasicWaves _basicWaveSettings = new BasicWaves(0.5f, 45.0f, 5.0f);
             public AnimationCurve _waveFoamProfile = AnimationCurve.Linear(0.02f, 0f, 0.98f, 1f);
+            public AnimationCurve _waveDepthProfile = AnimationCurve.Linear(0.0f, 1f, 0.98f, 0f);
+            
             
             // Micro(surface) Waves
             public float _microWaveIntensity = 0.25f;
