@@ -15,8 +15,9 @@ using System.Collections.Generic;
 using UnityEngine;
 using Unity.Collections;
 using Unity.Mathematics;
+using UnityPhysics = UnityEngine.Physics;
 
-namespace WaterSystem
+namespace WaterSystem.Physics
 {
     public class BuoyantObject : MonoBehaviour
     {
@@ -164,12 +165,12 @@ namespace WaterSystem
                 {
                     LocalToWorldJob.CompleteJob(_guid);
                     //Debug.Log("new pass: " + gameObject.name);
-                    Physics.autoSyncTransforms = false;
+                    UnityPhysics.autoSyncTransforms = false;
 
                     for (var i = 0; i < _voxels.Length; i++)
                         BuoyancyForce(_samplePoints[i], _velocity[i], Heights[i].y + waterLevelOffset, ref submergedAmount, ref _debugInfo[i]);
-                    Physics.SyncTransforms();
-                    Physics.autoSyncTransforms = true;
+                    UnityPhysics.SyncTransforms();
+                    UnityPhysics.autoSyncTransforms = true;
                     UpdateDrag(submergedAmount);
                     break;
                 }
@@ -313,7 +314,7 @@ namespace WaterSystem
 
         private bool PointIsInsideCollider(Collider c, Vector3 p)
         {
-            var cp = Physics.ClosestPoint(p, c, Vector3.zero, Quaternion.identity);
+            var cp = UnityPhysics.ClosestPoint(p, c, Vector3.zero, Quaternion.identity);
 			return Vector3.Distance(cp, p) < 0.01f;
         }
 
@@ -329,7 +330,7 @@ namespace WaterSystem
             _baseAngularDrag = _rb.angularDrag;
             
             _velocity = new float3[_voxels.Length];
-            var archimedesForceMagnitude = WaterDensity * Mathf.Abs(Physics.gravity.y) * volume;
+            var archimedesForceMagnitude = WaterDensity * Mathf.Abs(UnityPhysics.gravity.y) * volume;
             _localArchimedesForce = new float3(0, archimedesForceMagnitude, 0) / _voxels.Length;
             LocalToWorldJob.SetupJob(_guid, _voxels, ref _samplePoints);
         }

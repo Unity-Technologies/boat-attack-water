@@ -7,6 +7,7 @@ using UnityEngine.Rendering;
 namespace WaterSystem
 {
     [ExecuteAlways]
+    [AddComponentMenu("URP Water System/Depth Generator")]
     public class DepthGenerator : MonoBehaviour
     {
         public static DepthGenerator Current;

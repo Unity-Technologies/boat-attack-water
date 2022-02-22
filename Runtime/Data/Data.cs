@@ -1,8 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Mathematics;
-using UnityEngine.Rendering.Universal;
-using UnityEngine.Serialization;
+using WaterSystem.Rendering;
 
 namespace WaterSystem
 {

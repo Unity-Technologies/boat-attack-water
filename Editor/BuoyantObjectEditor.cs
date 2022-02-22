@@ -1,6 +1,6 @@
 ﻿using UnityEditor;
 
-namespace WaterSystem
+namespace WaterSystem.Physics
 {
     [CustomEditor(typeof(BuoyantObject))]
     public class BuoyantObjectEditor : Editor

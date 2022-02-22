@@ -60,7 +60,7 @@ struct Varyings // fragment struct
 	float3	preWaveSP 				: TEXCOORD3;	// screen position of the verticies before wave distortion
 	half2 	fogFactorNoise          : TEXCOORD4;	// x: fogFactor, y: noise
 	float4	additionalData			: TEXCOORD5;	// x = distance surface to floor from view, y = distance to surface, z = normalized wave height, w = horizontal movement
-	half4	screenPosition			: TEXCOORD6;	// screen position after the waves
+	float4	screenPosition			: TEXCOORD6;	// screen position after the waves
 
 	float4	positionCS				: SV_POSITION;
 	UNITY_VERTEX_INPUT_INSTANCE_ID

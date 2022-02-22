@@ -21,16 +21,17 @@
 			HLSLPROGRAM
 			#pragma prefer_hlslcc gles
 			/////////////////SHADER FEATURES//////////////////
-			#pragma multi_compile _REFLECTION_CUBEMAP _REFLECTION_PROBES _REFLECTION_PLANARREFLECTION
+			#pragma multi_compile_fragment _REFLECTION_CUBEMAP _REFLECTION_PROBES _REFLECTION_PLANARREFLECTION
 			#pragma multi_compile _ _STATIC_SHADER
-			#pragma multi_compile _ _BOATATTACK_WATER_DEBUG
+			#pragma multi_compile_fragment _ _BOATATTACK_WATER_DEBUG
             // -------------------------------------
             // Lightweight Pipeline keywords
-            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS
-            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS_CASCADE
-            #pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
-            #pragma multi_compile _ _ADDITIONAL_LIGHT_SHADOWS
-            #pragma multi_compile _ _SHADOWS_SOFT
+            #pragma multi_compile_fragment _ _MAIN_LIGHT_SHADOWS
+            #pragma multi_compile_fragment _ _MAIN_LIGHT_SHADOWS_CASCADE
+            #pragma multi_compile_fragment _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
+            #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
+			#pragma multi_compile_fragment _ _LIGHT_COOKIES
+            #pragma multi_compile_fragment _ _SHADOWS_SOFT
 
 			// make fog work
 			#pragma multi_compile_fog

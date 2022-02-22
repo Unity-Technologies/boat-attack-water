@@ -8,10 +8,12 @@ using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using Object = UnityEngine.Object;
 using Random = UnityEngine.Random;
+using WaterSystem.Rendering;
 
 namespace WaterSystem
 {
-    [ExecuteAlways]
+    [ExecuteAlways, DisallowMultipleComponent]
+    [AddComponentMenu("URP Water System/Ocean")]
     public class Ocean : MonoBehaviour
     {
         // Singleton
@@ -43,9 +45,9 @@ namespace WaterSystem
         public DebugShading shadingDebug;
         
         // Render Passes
-        private WaterSystemFeature.InfiniteWaterPass _infiniteWaterPass;
-        private WaterSystemFeature.WaterFxPass _waterBufferPass;
-        private WaterSystemFeature.WaterCausticsPass _causticsPass;
+        private InfiniteWaterPass _infiniteWaterPass;
+        private WaterFxPass _waterBufferPass;
+        private WaterCausticsPass _causticsPass;
         
         // RuntimeMaterials
         private Material _causticMaterial;
@@ -76,10 +78,20 @@ namespace WaterSystem
 
         private void OnEnable()
         {
+            if (_instance == null)
+            {
+                _instance = this;
+            }
+            else if(_instance != this)
+            {
+                Debug.LogError("Multiple Ocean Components cannot exist in tandem");
+                SafeDestroy(this);
+            }
+            
             #if UNITY_EDITOR
             if(resources == null)
             {
-                var data = AssetDatabase.LoadAssetAtPath<WaterResources>("Packages/com.verasl.water-system/Runtime/Data/WaterResources.asset");
+                var data = AssetDatabase.LoadAssetAtPath<WaterResources>("Packages/com.unity.urp-water-system/Runtime/Data/WaterResources.asset");
                 resources = data;
             }
             #endif
@@ -97,21 +109,17 @@ namespace WaterSystem
         private void OnDisable() {
             Cleanup();
         }
-
-        private void OnApplicationQuit()
-        {
-            GerstnerWavesJobs.Cleanup();
-        }
-
+        
         void Cleanup()
         {
+            GerstnerWavesJobs.Cleanup();
             RenderPipelineManager.beginCameraRendering -= BeginCameraRendering;
             waveBuffer?.Dispose();
         }
 
         private void BeginCameraRendering(ScriptableRenderContext src, Camera cam)
         {
-            if (cam.cameraType == CameraType.Preview) return;
+            if (cam.cameraType == CameraType.Preview || _instance == null) return;
 
             if (settingsData.refType == Data.ReflectionType.PlanarReflection)
                 PlanarReflections.Execute(src, cam, transform);
@@ -122,9 +130,9 @@ namespace WaterSystem
                 _causticMaterial.SetTexture("_CausticMap", resources.defaultSurfaceMap);
             }
 
-            _infiniteWaterPass ??= new WaterSystemFeature.InfiniteWaterPass(resources.defaultInfinitewWaterMesh);
-            _waterBufferPass ??= new WaterSystemFeature.WaterFxPass();
-            _causticsPass ??= new WaterSystemFeature.WaterCausticsPass(_causticMaterial);
+            _infiniteWaterPass ??= new InfiniteWaterPass(resources.defaultInfinitewWaterMesh);
+            _waterBufferPass ??= new WaterFxPass();
+            _causticsPass ??= new WaterCausticsPass(_causticMaterial);
 
             var urpData = cam.GetUniversalAdditionalCameraData();
             urpData.scriptableRenderer.EnqueuePass(_infiniteWaterPass);
@@ -179,12 +187,6 @@ namespace WaterSystem
             GenerateColorRamp();
             SetWaves();
 
-            if (!gameObject.TryGetComponent(out _planarReflections))
-            {
-                _planarReflections = gameObject.AddComponent<PlanarReflections>();
-            }
-            _planarReflections.hideFlags = HideFlags.HideAndDontSave | HideFlags.HideInInspector;
-            _planarReflections.enabled = settingsData.refType == Data.ReflectionType.PlanarReflection;
             PlanarReflections.m_planeOffset = transform.position.y;
             PlanarReflections.m_settings = settingsData.planarSettings;
             PlanarReflections.m_settings.m_ClipPlaneOffset = 0;//transform.position.y;
@@ -203,6 +205,10 @@ namespace WaterSystem
                 Shader.DisableKeyword("_BOATATTACK_WATER_DEBUG");
             }
             Shader.SetGlobalInt(BoatAttackWaterDebugPass, (int)shadingDebug);
+            
+            //CPU side
+            if(GerstnerWavesJobs.Initialized == false)
+                GerstnerWavesJobs.Init();
         }
 
         private void LateUpdate()
@@ -285,9 +291,6 @@ namespace WaterSystem
                 Shader.DisableKeyword("USE_STRUCTURED_BUFFER");
                 Shader.SetGlobalVectorArray(WaveData, GetWaveData());
             }
-            //CPU side
-            if(GerstnerWavesJobs.Initialized == false && Application.isPlaying)
-                GerstnerWavesJobs.Init();
         }
         
         private void GenerateColorRamp()

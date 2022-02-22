@@ -1,14 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Security.Cryptography;
-using UnityEngine.Experimental.Rendering;
-using UnityEngine.Serialization;
 using Unity.Mathematics;
+using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
+using UnityEngine.Experimental.Rendering;
 
-namespace UnityEngine.Rendering.Universal
+namespace WaterSystem.Rendering
 {
-    [ExecuteAlways]
-    public class PlanarReflections : MonoBehaviour
+    public class PlanarReflections
     {
         [Serializable]
         public enum ResolutionModes
@@ -42,36 +42,43 @@ namespace UnityEngine.Rendering.Universal
             public int m_RendererIndex;
         }
 
+        private class PlanarReflectionObjects
+        {
+            public Camera Camera;
+            public RenderTexture Texture;
+
+            public PlanarReflectionObjects(){}
+            
+            public PlanarReflectionObjects(RenderTexture rt)
+            {
+                Texture = rt;
+            }
+            
+            public PlanarReflectionObjects(Camera cam)
+            {
+                Camera = cam;
+            }
+            
+            public PlanarReflectionObjects(Camera cam, RenderTexture rt)
+            {
+                Camera = cam;
+                Texture = rt;
+            }
+        }
+
         public static PlanarReflectionSettings m_settings = new PlanarReflectionSettings();
 
-        public GameObject target;
         public static float m_planeOffset;
 
-        private static Camera _reflectionCamera;
-        private static Dictionary<Camera, RenderTexture> _reflectionTextures = new Dictionary<Camera, RenderTexture>();
+        //private static Camera _reflectionCamera;
+        private static Dictionary<Camera, PlanarReflectionObjects> _reflectionObjects = new Dictionary<Camera, PlanarReflectionObjects>();
         private static readonly int _planarReflectionTextureId = Shader.PropertyToID("_PlanarReflectionTexture");
 
         private int2 _oldReflectionTextureSize;
 
         public static event Action<ScriptableRenderContext, Camera> BeginPlanarReflections;
-
-        private void OnEnable()
-        {
-            //RenderPipelineManager.beginCameraRendering += ExecutePlanarReflections;
-        }
-
-        // Cleanup all the objects we possibly have created
-        private void OnDisable()
-        {
-            Cleanup();
-        }
-
-        private void OnDestroy()
-        {
-            Cleanup();
-        }
-
-        private void Cleanup()
+        
+        /*private static void Cleanup()
         {
             if(_reflectionCamera)
             {
@@ -84,19 +91,7 @@ namespace UnityEngine.Rendering.Universal
                 RenderTexture.ReleaseTemporary(textures.Value);
             }
             _reflectionTextures.Clear();
-        }
-
-        private static void SafeDestroy(Object obj)
-        {
-            if (Application.isEditor)
-            {
-                DestroyImmediate(obj);
-            }
-            else
-            {
-                Destroy(obj);
-            }
-        }
+        }*/
 
         private static void UpdateCamera(Camera src, Camera dest)
         {
@@ -124,8 +119,8 @@ namespace UnityEngine.Rendering.Universal
 
         private static void UpdateReflectionCamera(Camera realCamera, Transform transform)
         {
-            if (_reflectionCamera == null)
-                _reflectionCamera = CreateMirrorObjects(transform);
+            if (_reflectionObjects[realCamera].Camera == null)
+                _reflectionObjects[realCamera].Camera = CreateMirrorObjects(transform);
 
             // find out the reflection plane: position and normal in world space
             Vector3 pos = Vector3.zero;
@@ -136,7 +131,7 @@ namespace UnityEngine.Rendering.Universal
                 normal = target.transform.up;
             }*/
 
-            UpdateCamera(realCamera, _reflectionCamera);
+            UpdateCamera(realCamera, _reflectionObjects[realCamera].Camera);
 
             // Render reflection
             // Reflect camera around reflection plane
@@ -149,16 +144,16 @@ namespace UnityEngine.Rendering.Universal
             CalculateReflectionMatrix(ref reflection, reflectionPlane);
             var oldPosition = realCamera.transform.position - new Vector3(0, pos.y * 2, 0);
             var newPosition = ReflectPosition(oldPosition);
-            _reflectionCamera.transform.forward = Vector3.Scale(realCamera.transform.forward, new Vector3(1, -1, 1));
-            _reflectionCamera.worldToCameraMatrix = realCamera.worldToCameraMatrix * reflection;
+            _reflectionObjects[realCamera].Camera.transform.forward = Vector3.Scale(realCamera.transform.forward, new Vector3(1, -1, 1));
+            _reflectionObjects[realCamera].Camera.worldToCameraMatrix = realCamera.worldToCameraMatrix * reflection;
 
             // Setup oblique projection matrix so that near plane is our reflection
             // plane. This way we clip everything below/above it for free.
-            var clipPlane = CameraSpacePlane(_reflectionCamera, pos - Vector3.up * 0.1f, normal, 1.0f);
+            var clipPlane = CameraSpacePlane(_reflectionObjects[realCamera].Camera, pos - Vector3.up * 0.1f, normal, 1.0f);
             var projection = realCamera.CalculateObliqueMatrix(clipPlane);
-            _reflectionCamera.projectionMatrix = projection;
-            _reflectionCamera.cullingMask = m_settings.m_ReflectLayers; // never render water layer
-            _reflectionCamera.transform.position = newPosition;
+            _reflectionObjects[realCamera].Camera.projectionMatrix = projection;
+            _reflectionObjects[realCamera].Camera.cullingMask = m_settings.m_ReflectLayers; // never render water layer
+            _reflectionObjects[realCamera].Camera.transform.position = newPosition;
         }
 
         // Calculates reflection matrix around the given plane
@@ -245,29 +240,32 @@ namespace UnityEngine.Rendering.Universal
             return reflectionCamera;
         }
 
-        private static void PlanarReflectionTexture(Camera cam)
+        private static void PlanarReflectionTexture(PlanarReflectionObjects objects, int2 res)
         {
-            var dimensions = ReflectionResolution(cam, UniversalRenderPipeline.asset.renderScale);
-            
-            if (!_reflectionTextures.ContainsKey(cam))
+            if(objects.Texture == null)
             {
-                _reflectionTextures.Add(cam, CreateTexture(dimensions));
+                objects.Texture = CreateTexture(res);
             }
-            else if(_reflectionTextures[cam] == null)
+            else if (objects.Texture.width != res.x)
             {
-                _reflectionTextures[cam] = CreateTexture(dimensions);
+                RenderTexture.ReleaseTemporary(objects.Texture);
+                objects.Texture = CreateTexture(res);
             }
-            else if (_reflectionTextures[cam].width != dimensions.x)
+            objects.Camera.targetTexture =  objects.Texture;
+        }
+
+        private static void UpdateReflectionObjects(Camera camera, Transform transform)
+        {
+            if (!_reflectionObjects.ContainsKey(camera))
             {
-                RenderTexture.ReleaseTemporary(_reflectionTextures[cam]);
-                _reflectionTextures[cam] = CreateTexture(dimensions);
+                _reflectionObjects.Add(camera, new PlanarReflectionObjects());
             }
-            _reflectionCamera.targetTexture =  _reflectionTextures[cam];
+            UpdateReflectionCamera(camera, transform);
+            PlanarReflectionTexture(_reflectionObjects[camera], ReflectionResolution(camera, UniversalRenderPipeline.asset.renderScale));
         }
 
         private static RenderTexture CreateTexture(int2 res)
         {
-            Debug.Log("creating new RT");
             bool useHdr10 = RenderingUtils.SupportsRenderTextureFormat(RenderTextureFormat.RGB111110Float);
             RenderTextureFormat hdrFormat = useHdr10 ? RenderTextureFormat.RGB111110Float : RenderTextureFormat.DefaultHDR;
             return RenderTexture.GetTemporary(res.x, res.y, 24,
@@ -294,17 +292,17 @@ namespace UnityEngine.Rendering.Universal
             if (m_settings == null)
                 return;
             
-            UpdateReflectionCamera(camera, transform); // create reflected camera
-            PlanarReflectionTexture(camera); // create and assign RenderTexture
+            UpdateReflectionObjects(camera, transform);
 
             var data = new PlanarReflectionSettingData(); // save quality settings and lower them for the planar reflections
             data.Set(); // set quality settings
 
-            BeginPlanarReflections?.Invoke(context, _reflectionCamera); // callback Action for PlanarReflection
-            UniversalRenderPipeline.RenderSingleCamera(context, _reflectionCamera); // render planar reflections
+            BeginPlanarReflections?.Invoke(context, _reflectionObjects[camera].Camera); // callback Action for PlanarReflection
+            UniversalRenderPipeline.RenderSingleCamera(context, _reflectionObjects[camera].Camera); // render planar reflections
 
             data.Restore(); // restore the quality settings
-            Shader.SetGlobalTexture(_planarReflectionTextureId, _reflectionTextures[camera]); // Assign texture to water shader
+            Shader.SetGlobalTexture(_planarReflectionTextureId, _reflectionObjects[camera].Texture); // Assign texture to water shader
+            //Cleanup();
         }
 
         class PlanarReflectionSettingData

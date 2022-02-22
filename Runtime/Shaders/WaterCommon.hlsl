@@ -226,7 +226,6 @@ void InitializeInputData(Varyings input, out WaterInputData inputData, float2 sc
     inputData.depth = depth.x;
     inputData.reflectionUV = 0;
     inputData.GI = 0;
-
 }
 
 void InitializeSurfaceData(inout WaterInputData input, out WaterSurfaceData surfaceData, float4 additionalData)
@@ -237,7 +236,7 @@ void InitializeSurfaceData(inout WaterInputData input, out WaterSurfaceData surf
 	float depth = input.depth;
 	
 	// Foam
-	half depthEdge = min(saturate(depth.x), input.waterBufferB.b * 0.25 + 0.5);
+	half depthEdge = saturate(depth.x);// min(saturate(depth.x), input.waterBufferB.b * 0.25 + 0.5);
 	//half edgeFoam = pow(saturate(1 - min(depth, input.waterBufferB.b) * 0.25 - 0.5) * depthEdge, 2.4) * 6.8;
 	half3 foamShoreRamp = SAMPLE_TEXTURE2D(_BoatAttack_RampTexture, sampler_BoatAttack_Linear_Clamp_RampTexture,  depthEdge).r;
 	half3 foamWaveRamp = SAMPLE_TEXTURE2D(_BoatAttack_RampTexture, sampler_BoatAttack_Linear_Clamp_RampTexture,  additionalData.w).g;
@@ -370,7 +369,7 @@ Varyings WaterVertex(Attributes v)
 half4 WaterFragment(Varyings IN) : SV_Target
 {
 	UNITY_SETUP_INSTANCE_ID(IN);
-	half4 screenUV = 0.0;
+	float4 screenUV = 0.0;
 	screenUV.xy  = IN.screenPosition.xy / IN.screenPosition.w; // screen UVs
 	screenUV.zw  = IN.preWaveSP.xy; // screen UVs
 

@@ -1,10 +1,10 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using Unity.Jobs;
 using Unity.Burst;
 using Unity.Mathematics;
 using Unity.Collections;
-using UnityEngine.Rendering.Universal;
 
 namespace WaterSystem
 {
@@ -22,11 +22,12 @@ namespace WaterSystem
 
         //Details for Buoyant Objects
         private static NativeArray<float3> _positions;
-        private static int _positionCount;
+        public static int _positionCount;
         private static NativeArray<float3> _wavePos;
         private static NativeArray<float3> _waveNormal;
         private static JobHandle _waterHeightHandle;
-        static readonly Dictionary<int, int2> Registry = new Dictionary<int, int2>();
+        public static readonly Dictionary<int, int2> Registry = new Dictionary<int, int2>();
+        
 
         public static void Init()
         {
@@ -58,12 +59,13 @@ namespace WaterSystem
             _positions.Dispose();
             _wavePos.Dispose();
             _waveNormal.Dispose();
+            Initialized = false;
         }
 
         public static void UpdateSamplePoints(ref NativeArray<float3> samplePoints, int guid)
         {
             CompleteJobs();
-
+            
             if (Registry.TryGetValue(guid, out var offsets))
             {
                 for (var i = offsets.x; i < offsets.y; i++) _positions[i] = samplePoints[i - offsets.x];
@@ -78,13 +80,41 @@ namespace WaterSystem
             }
         }
 
+        public static void RemoveSamplePoints(int guid)
+        {
+            if (!Registry.TryGetValue(guid, out var offsets)) return;
+            
+            var min = offsets.x;
+            var size = offsets.y - min;
+
+            Registry.Remove(guid);
+            foreach (var offsetEntry in Registry.ToArray())
+            {
+                var entry = offsetEntry.Value;
+                // if values after removal, offset
+                if (entry.x > min)
+                {
+                    entry -= size;
+                }
+                Registry[offsetEntry.Key] = entry;
+            }
+
+            _positionCount -= size;
+        }
+        
+        public static void GetData(int guid, ref float3[] outPos)
+        {
+            if (!Registry.TryGetValue(guid, out var offsets)) return;
+            
+            _wavePos.Slice(offsets.x, offsets.y - offsets.x).CopyTo(outPos);
+        }
+
         public static void GetData(int guid, ref float3[] outPos, ref float3[] outNorm)
         {
             if (!Registry.TryGetValue(guid, out var offsets)) return;
             
             _wavePos.Slice(offsets.x, offsets.y - offsets.x).CopyTo(outPos);
-            if(outNorm != null)
-                _waveNormal.Slice(offsets.x, offsets.y - offsets.x).CopyTo(outNorm);
+            _waveNormal.Slice(offsets.x, offsets.y - offsets.x).CopyTo(outNorm);
         }
 
         // Height jobs for the next frame
@@ -166,7 +196,7 @@ namespace WaterSystem
                     ////////////////////////////////wave value calculations//////////////////////////
                     var w = 6.28318f / wavelength; // 2pi over wavelength(hardcoded)
                     var wSpeed = math.sqrt(9.8f * w); // frequency of the wave based off wavelength
-                    const float peak = 0.8f; // peak value, 1 is the sharpest peaks
+                    const float peak = 2f; // peak value, 1 is the sharpest peaks
                     var qi = peak / (amplitude * w * WaveData.Length);
 
                     var windDir = new float2(0f, 0f);
@@ -186,8 +216,7 @@ namespace WaterSystem
                     var sinCalc = math.sin(calc); // sin version(used for vertical undulation)
 
                     // calculate the offsets for the current point
-                    wavePos.x += qi * amplitude * windDir.x * cosCalc;
-                    wavePos.z += qi * amplitude * windDir.y * cosCalc;
+                    wavePos.xz += qi * amplitude * windDir.xy * cosCalc;
                     wavePos.y += sinCalc * amplitude * waveCountMulti; // the height is divided by the number of waves 
 
                     ////////////////////////////normal output calculations/////////////////////////

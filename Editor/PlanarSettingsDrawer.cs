@@ -1,9 +1,8 @@
 ﻿using UnityEngine;
 using UnityEditor;
-using UnityEngine.Rendering.Universal;
-using PlanarSettings = UnityEngine.Rendering.Universal.PlanarReflections.PlanarReflectionSettings;
+using PlanarSettings = WaterSystem.Rendering.PlanarReflections.PlanarReflectionSettings;
 
-namespace WaterSystem
+namespace WaterSystem.Rendering
 {
 	[CustomPropertyDrawer(typeof(PlanarReflections.PlanarReflectionSettings))]
 	public class PlanarSettingsDrawer : PropertyDrawer
