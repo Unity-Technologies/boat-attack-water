@@ -150,11 +150,13 @@ namespace WaterSystem
             const float yOffset = -0.25f;
 
             var newPos = cam.transform.TransformPoint(Vector3.forward * forwards);
-            newPos.y = yOffset;
+            newPos.y = yOffset + transform.position.y;
             newPos.x = quantizeValue * (int) (newPos.x / quantizeValue);
             newPos.z = quantizeValue * (int) (newPos.z / quantizeValue);
 
-            var matrix = Matrix4x4.TRS(newPos + transform.position, Quaternion.identity, transform.localScale); // transform.localToWorldMatrix;
+            var blendDist = (settingsData.distanceBlend + 10) / 100f;
+
+            var matrix = Matrix4x4.TRS(newPos, Quaternion.identity, Vector3.one * blendDist); // transform.localToWorldMatrix;
 
             foreach (var mesh in resources.defaultWaterMeshes)
             {

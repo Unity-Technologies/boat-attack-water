@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Unity.Mathematics;
 using UnityEditor;
 using UnityEngine;
@@ -11,6 +12,7 @@ namespace WaterSystem
     public class DepthGenerator : MonoBehaviour
     {
         public static DepthGenerator Current;
+        private static List<DepthGenerator> _generators = new List<DepthGenerator>();
         [SerializeField] internal Texture2D depthTile;
 
         private static readonly int Depth = Shader.PropertyToID("_Depth");
@@ -60,17 +62,25 @@ namespace WaterSystem
                 Debug.LogWarning($"{GetType().Name} on gameobject {gameObject.name} is missing tile texture");
                 #endif
             }
+            if(!_generators.Contains(this))
+                _generators.Add(this);
         }
-        
+
+        private void OnDestroy()
+        {
+            if (_generators.Contains(this))
+                _generators.Remove(this);
+        }
+
         public float GetDepth(float2 UVPos)
         {
             var depth = 1 - _depthValues[(int)(UVPos.x * tileRes), (int)(UVPos.y * tileRes)];
-            return -(depth * (range + offset) - offset);
+            return -(depth * (range + offset)) + offset;
         }
 
         public float GetDepth(Vector3 position)
         {
-            var UVPos = GetUVPositon(position) * tileRes;
+            var UVPos = GetUVPositon(position);
             return GetDepth(UVPos);
         }
 
@@ -118,6 +128,16 @@ namespace WaterSystem
                     }
                 }
             }
+        }
+
+        public static float GetGlobalDepth(float3 samplePos)
+        {
+            var depth = 1000f;
+            foreach (var depthGenerator in _generators)
+            {
+                depth = depthGenerator.GetDepth(samplePos);
+            }
+            return depth;
         }
 
         private void OnDrawGizmosSelected()

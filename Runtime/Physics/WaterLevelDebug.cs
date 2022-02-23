@@ -1,5 +1,6 @@
 using Unity.Collections;
 using Unity.Mathematics;
+using UnityEditor;
 using UnityEngine;
 
 namespace WaterSystem.Physics
@@ -76,10 +77,14 @@ namespace WaterSystem.Physics
                 positions = new float3[samplePositions.Length];
         }
         
-        public float3 GetHeight(float3 position)
+        public float3 GetHeight(int index, float3 samplePos)
         {
-            var pos = position;
-            pos.y = 0f;
+            var pos = positions[index];
+            var depth = DepthGenerator.GetGlobalDepth(samplePos);
+            pos.x = samplePos.x;
+            pos.z = samplePos.z;
+            pos.y *= Ocean.Instance.settingsData._waveDepthProfile.Evaluate(Mathf.Max(depth - 4f, 0f));
+            pos.y += Ocean.Instance.transform.position.y;
             return pos;
         }
         
@@ -91,10 +96,7 @@ namespace WaterSystem.Physics
             for (var index = 0; index < samplePositions.Length; index++)
             {
                 var samplePos = samplePositions[index];
-                var finalPos = positions[index];
-                finalPos.x = samplePos.x;
-                finalPos.z = samplePos.z;
-                finalPos.y += Ocean.Instance.transform.position.y;
+                var finalPos = GetHeight(index, samplePos);
                 Gizmos.color = colA;
                 Gizmos.DrawSphere(samplePos, 0.1f);
                 Gizmos.DrawLine(samplePos, finalPos);

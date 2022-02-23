@@ -127,7 +127,7 @@ namespace WaterSystem
 #if STATIC_EVERYTHING
             var t = 0.0f;
 #else
-            var t = Time.time;
+            var t = Application.isPlaying ? Time.time: Time.realtimeSinceStartup;
 #endif
 
             // Buoyant Object Job
