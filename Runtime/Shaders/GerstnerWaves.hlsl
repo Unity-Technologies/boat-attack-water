@@ -88,7 +88,7 @@ inline void SampleWaves(float3 position, half opacity, out WaveStruct waveOut)
 	//waveOut.position = 0;
 	//waveOut.normal = 0;
 	half waveCountMulti = 1.0 / _WaveCount;
-	half3 opacityMask = saturate(half3(3, 3, 1) * opacity);
+	opacity = saturate(opacity);
 
 	UNITY_LOOP
 	for(uint i = 0; i < _WaveCount; i++)

@@ -30,6 +30,8 @@ namespace WaterSystem
         public float offset = 4;
         public LayerMask mask = new LayerMask();
 
+        private static readonly float maxDepth = -999f;
+
         #if UNITY_EDITOR
         [ContextMenu("Capture Depth")]
         public void CaptureDepth()
@@ -74,6 +76,7 @@ namespace WaterSystem
 
         public float GetDepth(float2 UVPos)
         {
+            UVPos = math.clamp(UVPos, 0, 0.999f);
             var depth = 1 - _depthValues[(int)(UVPos.x * tileRes), (int)(UVPos.y * tileRes)];
             return -(depth * (range + offset)) + offset;
         }
@@ -81,6 +84,8 @@ namespace WaterSystem
         public float GetDepth(Vector3 position)
         {
             var UVPos = GetUVPositon(position);
+            if (UVPos.x is > 1 or < 0 || UVPos.y is > 1 or < 0)
+                return maxDepth;
             return GetDepth(UVPos);
         }
 
@@ -96,7 +101,7 @@ namespace WaterSystem
             position *= 1f / size;
             position += 0.5f;
             
-            return math.clamp(position.yx, 0, 0.999f);
+            return position.yx;
         }
 
         private void LateUpdate()
@@ -132,7 +137,7 @@ namespace WaterSystem
 
         public static float GetGlobalDepth(float3 samplePos)
         {
-            var depth = 1000f;
+            var depth = maxDepth;
             foreach (var depthGenerator in _generators)
             {
                 depth = depthGenerator.GetDepth(samplePos);

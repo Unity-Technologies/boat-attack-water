@@ -83,7 +83,7 @@ namespace WaterSystem.Physics
             var depth = DepthGenerator.GetGlobalDepth(samplePos);
             pos.x = samplePos.x;
             pos.z = samplePos.z;
-            pos.y *= Ocean.Instance.settingsData._waveDepthProfile.Evaluate(Mathf.Max(depth - 4f, 0f));
+            pos.y *= math.saturate(Ocean.Instance.settingsData._waveDepthProfile.Evaluate(1-math.saturate(-depth / 20f)));
             pos.y += Ocean.Instance.transform.position.y;
             return pos;
         }
