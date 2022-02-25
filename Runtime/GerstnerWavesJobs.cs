@@ -25,6 +25,7 @@ namespace WaterSystem
         public static int _positionCount;
         private static NativeArray<float3> _wavePos;
         private static NativeArray<float3> _waveNormal;
+        private static NativeArray<float> _opacity;
         private static JobHandle _waterHeightHandle;
         public static readonly Dictionary<int, int2> Registry = new Dictionary<int, int2>();
         
@@ -44,6 +45,7 @@ namespace WaterSystem
             _positions = new NativeArray<float3>(4096, Allocator.Persistent);
             _wavePos = new NativeArray<float3>(4096, Allocator.Persistent);
             _waveNormal = new NativeArray<float3>(4096, Allocator.Persistent);
+            _opacity = new NativeArray<float>(4096, Allocator.Persistent);
 
             Initialized = true;
         }
@@ -59,6 +61,7 @@ namespace WaterSystem
             _positions.Dispose();
             _wavePos.Dispose();
             _waveNormal.Dispose();
+            _opacity.Dispose();
             Initialized = false;
         }
 
@@ -130,7 +133,15 @@ namespace WaterSystem
             var t = Application.isPlaying ? Time.time: Time.realtimeSinceStartup;
 #endif
 
+            // TODO need to jobify this
+            for (var index = 0; index < _positions.Length; index++)
+            {
+                var depth = DepthGenerator.GetGlobalDepth(_positions[index]);
+                _opacity[index] = math.saturate(Ocean.Instance.settingsData._waveDepthProfile.Evaluate(1-math.saturate(-depth / 20f)));
+            }
+
             // Buoyant Object Job
+            var offset = Ocean.Instance.transform.position.y;
             var waterHeight = new HeightJob()
             {
                 WaveData = _waveData,
@@ -138,7 +149,9 @@ namespace WaterSystem
                 OffsetLength = new int2(0, _positions.Length),
                 Time = t,
                 OutPosition = _wavePos,
-                OutNormal = _waveNormal
+                OutNormal = _waveNormal,
+                WaveLevelOffset = offset,
+                Opacity = _opacity,
             };
                 
             _waterHeightHandle = waterHeight.Schedule(_positionCount, 32);
@@ -174,6 +187,9 @@ namespace WaterSystem
             public float Time;
             [ReadOnly]
             public int2 OffsetLength;
+
+            [ReadOnly] public float WaveLevelOffset;
+            [ReadOnly] public NativeArray<float> Opacity;
 
             // The code actually running on the job
             public void Execute(int i)
@@ -226,7 +242,11 @@ namespace WaterSystem
                         1 - (qi * wa * sinCalc));
                     waveNorm += (norm * waveCountMulti) * amplitude;
                 }
+                wavePos *= Opacity[i];
+                wavePos.xz += Position[i].xz;
+                wavePos.y += WaveLevelOffset;
                 OutPosition[i] = wavePos;
+                waveNorm.xy *= Opacity[i];
                 OutNormal[i] = math.normalize(waveNorm.xzy);
             }
         }

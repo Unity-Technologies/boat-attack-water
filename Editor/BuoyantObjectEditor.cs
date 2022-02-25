@@ -1,4 +1,6 @@
-﻿using UnityEditor;
+﻿using System;
+using UnityEditor;
+using UnityEngine;
 
 namespace WaterSystem.Physics
 {
@@ -6,7 +8,9 @@ namespace WaterSystem.Physics
     public class BuoyantObjectEditor : Editor
     {
         private BuoyantObject obj;
+        [SerializeField]
         private bool _heightsDebugBool;
+        [SerializeField]
         private bool _generalSettingsBool;
 
         private void OnEnable()
@@ -16,15 +20,13 @@ namespace WaterSystem.Physics
 
         public override void OnInspectorGUI()
         {
-            _generalSettingsBool = EditorGUILayout.BeginFoldoutHeaderGroup(_generalSettingsBool, "General Settings");
+            _generalSettingsBool = EditorGUILayout.Foldout(_generalSettingsBool, "General Settings");
             if (_generalSettingsBool)
             {
                 base.OnInspectorGUI();
             }
-            EditorGUILayout.EndFoldoutHeaderGroup();
 
-            _heightsDebugBool = EditorGUILayout.BeginFoldoutHeaderGroup(_heightsDebugBool, "Height Debug Values");
-            if (_heightsDebugBool)
+            if (EditorGUILayout.BeginFoldoutHeaderGroup(_heightsDebugBool, "Height Debug Values"))
             {
                 if (obj.Heights != null)
                 {

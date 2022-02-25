@@ -42,6 +42,7 @@ namespace WaterSystem.Physics
         [NonSerialized] public float3[] Heights; // water height array(only size of 1 when simple or non-physical)
         private float3[] _normals; // water normal array(only used when non-physical and size of 1 also when simple)
         private float3[] _velocity; // voxel velocity for buoyancy
+        
         [SerializeField] Collider[] colliders; // colliders attatched ot this object
         private Rigidbody _rb;
         private DebugDrawing[] _debugInfo; // For drawing force gizmos
@@ -129,11 +130,13 @@ namespace WaterSystem.Physics
             {
                 case BuoyancyType.NonPhysical:
                 {
+                    _samplePoints[0] = transform.position;
                     var t = transform;
                     var vec  = t.position;
                     vec.y = Heights[0].y + waterLevelOffset;
                     t.position = vec;
-                    t.up = Vector3.Slerp(t.up, _normals[0], dt);
+                    var up = t.up;
+                    t.up = Vector3.Slerp(up, _normals[0], dt);
                     break;
                 }
                 case BuoyancyType.NonPhysicalVoxel:

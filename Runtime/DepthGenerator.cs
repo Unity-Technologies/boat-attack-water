@@ -77,8 +77,10 @@ namespace WaterSystem
         public float GetDepth(float2 UVPos)
         {
             UVPos = math.clamp(UVPos, 0, 0.999f);
-            var depth = 1 - _depthValues[(int)(UVPos.x * tileRes), (int)(UVPos.y * tileRes)];
+            if (_depthValues == null) return maxDepth;
+            var depth = 1 - _depthValues[(int) (UVPos.x * tileRes), (int) (UVPos.y * tileRes)];
             return -(depth * (range + offset)) + offset;
+
         }
 
         public float GetDepth(Vector3 position)
