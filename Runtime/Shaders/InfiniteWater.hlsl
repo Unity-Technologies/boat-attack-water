@@ -35,7 +35,7 @@ InfinitePlane WorldPlane(float4 viewDirection, float3 positionWS)
 {
     InfinitePlane output = (InfinitePlane)0;
 
-    half3 offset = float3(0, _WaveHeight - _MaxWaveHeight, 0);
+    half3 offset = float3(0, _WaveHeight, 0);
     // Line information
     float3 lineOrigin = _WorldSpaceCameraPos - offset;
     float3 lineDir = normalize(positionWS - _WorldSpaceCameraPos);

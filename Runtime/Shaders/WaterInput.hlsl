@@ -4,11 +4,11 @@
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
 CBUFFER_START(UnityPerMaterial)
-half3 _AbsorptionColor;
-half3 _ScatteringColor;
 half4 _DitherPattern_TexelSize;
 CBUFFER_END
 
+half3 _AbsorptionColor;
+half3 _ScatteringColor;
 int _BoatAttack_Water_DebugPass;
 half _BoatAttack_Water_DistanceBlend;
 half _BoatAttack_Water_MicroWaveIntensity;
@@ -20,7 +20,7 @@ half4 _VeraslWater_DepthCamParams;
 float4x4 _InvViewProjection;
 
 // Screen Effects textures
-SAMPLER(sampler_ScreenTextures_linear_clamp);
+SAMPLER(sampler_ScreenTextures_point_clamp);
 #if defined(_REFLECTION_PLANARREFLECTION)
 TEXTURE2D(_PlanarReflectionTexture);
 #elif defined(_REFLECTION_CUBEMAP)
@@ -30,7 +30,7 @@ SAMPLER(sampler_CubemapTexture);
 TEXTURE2D(_WaterBufferA);
 TEXTURE2D(_WaterBufferB);
 TEXTURE2D(_CameraDepthTexture);
-TEXTURE2D(_CameraOpaqueTexture); SAMPLER(sampler_CameraOpaqueTexture_linear_clamp);
+TEXTURE2D(_CameraOpaqueTexture); SAMPLER(sampler_ScreenTextures_linear_clamp);
 
 // Surface textures
 TEXTURE2D(_SurfaceMap); SAMPLER(sampler_SurfaceMap);
@@ -60,7 +60,7 @@ struct Varyings // fragment struct
 	float3	preWaveSP 				: TEXCOORD3;	// screen position of the verticies before wave distortion
 	half2 	fogFactorNoise          : TEXCOORD4;	// x: fogFactor, y: noise
 	float4	additionalData			: TEXCOORD5;	// x = distance surface to floor from view, y = distance to surface, z = normalized wave height, w = horizontal movement
-	half4	screenPosition			: TEXCOORD6;	// screen position after the waves
+	float4	screenPosition			: TEXCOORD6;	// screen position after the waves
 
 	float4	positionCS				: SV_POSITION;
 	UNITY_VERTEX_INPUT_INSTANCE_ID

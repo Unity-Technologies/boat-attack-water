@@ -51,7 +51,7 @@ half3 Absorption(half depth)
 
 float2 AdjustedDepth(half2 uvs, half4 additionalData)
 {
-	const float rawD = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, sampler_ScreenTextures_linear_clamp, uvs);
+	const float rawD = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, sampler_ScreenTextures_point_clamp, uvs);
 	const float d = LinearEyeDepth(rawD, _ZBufferParams);
 	float x = d * additionalData.x - additionalData.y;
 
@@ -90,7 +90,7 @@ float3 WaterDepth(float3 positionWS, half4 additionalData, half2 screenUVs)// x 
 
 half3 Refraction(half2 distortion, half depth, half edgeFade)
 {
-	half3 output = SAMPLE_TEXTURE2D_LOD(_CameraOpaqueTexture, sampler_CameraOpaqueTexture_linear_clamp, distortion, depth * 0.25).rgb;
+	half3 output = SAMPLE_TEXTURE2D_LOD(_CameraOpaqueTexture, sampler_ScreenTextures_linear_clamp, distortion, depth * 0.25).rgb;
 	output *= max(Absorption(depth), 1-edgeFade);
 	return output;
 }
@@ -226,7 +226,6 @@ void InitializeInputData(Varyings input, out WaterInputData inputData, float2 sc
     inputData.depth = depth.x;
     inputData.reflectionUV = 0;
     inputData.GI = 0;
-
 }
 
 void InitializeSurfaceData(inout WaterInputData input, out WaterSurfaceData surfaceData, float4 additionalData)
@@ -237,7 +236,7 @@ void InitializeSurfaceData(inout WaterInputData input, out WaterSurfaceData surf
 	float depth = input.depth;
 	
 	// Foam
-	half depthEdge = min(saturate(depth.x), input.waterBufferB.b * 0.25 + 0.5);
+	half depthEdge = saturate(depth.x);// min(saturate(depth.x), input.waterBufferB.b * 0.25 + 0.5);
 	//half edgeFoam = pow(saturate(1 - min(depth, input.waterBufferB.b) * 0.25 - 0.5) * depthEdge, 2.4) * 6.8;
 	half3 foamShoreRamp = SAMPLE_TEXTURE2D(_BoatAttack_RampTexture, sampler_BoatAttack_Linear_Clamp_RampTexture,  depthEdge).r;
 	half3 foamWaveRamp = SAMPLE_TEXTURE2D(_BoatAttack_RampTexture, sampler_BoatAttack_Linear_Clamp_RampTexture,  additionalData.w).g;
@@ -271,7 +270,7 @@ float3 WaterShading(WaterInputData input, WaterSurfaceData surfaceData, float4 a
 	half fresnelTerm = CalculateFresnelTerm(input.normalWS, input.viewDirectionWS);
 	
     // Lighting
-	Light mainLight = GetMainLight(TransformWorldToShadowCoord(input.positionWS));
+	Light mainLight = GetMainLight(TransformWorldToShadowCoord(input.positionWS), input.positionWS, 1);
     half volumeShadow = SoftShadows(screenUV, input.positionWS, input.viewDirectionWS, input.depth);
     half3 GI = SampleSH(input.normalWS);
 
@@ -370,7 +369,7 @@ Varyings WaterVertex(Attributes v)
 half4 WaterFragment(Varyings IN) : SV_Target
 {
 	UNITY_SETUP_INSTANCE_ID(IN);
-	half4 screenUV = 0.0;
+	float4 screenUV = 0.0;
 	screenUV.xy  = IN.screenPosition.xy / IN.screenPosition.w; // screen UVs
 	screenUV.zw  = IN.preWaveSP.xy; // screen UVs
 

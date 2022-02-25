@@ -72,8 +72,8 @@ half SoftShadows(float2 screenUV, float3 positionWS, half3 viewDir, half depth)
 
     half fade = GetShadowFade(positionWS);
     //half fade = GetMainLightShadowFade(positionWS);
-    
-    return lerp(shadowAttenuation, 1, fade);
+
+    return lerp(shadowAttenuation, 1, fade) * SampleMainLightCookie(positionWS);
 #else
     return 1;
 #endif

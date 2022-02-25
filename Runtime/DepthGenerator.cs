@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Unity.Mathematics;
 using UnityEditor;
 using UnityEngine;
@@ -7,9 +8,11 @@ using UnityEngine.Rendering;
 namespace WaterSystem
 {
     [ExecuteAlways]
+    [AddComponentMenu("URP Water System/Depth Generator")]
     public class DepthGenerator : MonoBehaviour
     {
         public static DepthGenerator Current;
+        private static List<DepthGenerator> _generators = new List<DepthGenerator>();
         [SerializeField] internal Texture2D depthTile;
 
         private static readonly int Depth = Shader.PropertyToID("_Depth");
@@ -26,6 +29,8 @@ namespace WaterSystem
         public float range = 20;
         public float offset = 4;
         public LayerMask mask = new LayerMask();
+
+        private static readonly float maxDepth = -999f;
 
         #if UNITY_EDITOR
         [ContextMenu("Capture Depth")]
@@ -59,17 +64,30 @@ namespace WaterSystem
                 Debug.LogWarning($"{GetType().Name} on gameobject {gameObject.name} is missing tile texture");
                 #endif
             }
+            if(!_generators.Contains(this))
+                _generators.Add(this);
         }
-        
+
+        private void OnDestroy()
+        {
+            if (_generators.Contains(this))
+                _generators.Remove(this);
+        }
+
         public float GetDepth(float2 UVPos)
         {
-            var depth = 1 - _depthValues[(int)(UVPos.x * tileRes), (int)(UVPos.y * tileRes)];
-            return -(depth * (range + offset) - offset);
+            UVPos = math.clamp(UVPos, 0, 0.999f);
+            if (_depthValues == null) return maxDepth;
+            var depth = 1 - _depthValues[(int) (UVPos.x * tileRes), (int) (UVPos.y * tileRes)];
+            return -(depth * (range + offset)) + offset;
+
         }
 
         public float GetDepth(Vector3 position)
         {
-            var UVPos = GetUVPositon(position) * tileRes;
+            var UVPos = GetUVPositon(position);
+            if (UVPos.x is > 1 or < 0 || UVPos.y is > 1 or < 0)
+                return maxDepth;
             return GetDepth(UVPos);
         }
 
@@ -85,7 +103,7 @@ namespace WaterSystem
             position *= 1f / size;
             position += 0.5f;
             
-            return math.clamp(position.yx, 0, 0.999f);
+            return position.yx;
         }
 
         private void LateUpdate()
@@ -117,6 +135,16 @@ namespace WaterSystem
                     }
                 }
             }
+        }
+
+        public static float GetGlobalDepth(float3 samplePos)
+        {
+            var depth = maxDepth;
+            foreach (var depthGenerator in _generators)
+            {
+                depth = depthGenerator.GetDepth(samplePos);
+            }
+            return depth;
         }
 
         private void OnDrawGizmosSelected()
