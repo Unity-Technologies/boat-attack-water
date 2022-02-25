@@ -15,6 +15,7 @@ namespace WaterSystem.Rendering
 		private SerializedProperty resolutionCustom;
 		private SerializedProperty layerMask;
 		private SerializedProperty shadows;
+		private SerializedProperty obliqueProjection;
 		private SerializedProperty rendererMode;
 		private SerializedProperty rendererIndex;
 
@@ -25,6 +26,7 @@ namespace WaterSystem.Rendering
 			resolutionCustom = property.FindPropertyRelative(nameof(PlanarSettings.m_ResolutionCustom));
 			layerMask = property.FindPropertyRelative(nameof(PlanarSettings.m_ReflectLayers));
 			shadows = property.FindPropertyRelative(nameof(PlanarSettings.m_Shadows));
+			obliqueProjection = property.FindPropertyRelative(nameof(PlanarSettings.m_ObliqueProjection));
 			rendererMode = property.FindPropertyRelative(nameof(PlanarSettings.m_RendererMode));
 			rendererIndex = property.FindPropertyRelative(nameof(PlanarSettings.m_RendererIndex));
 		}
@@ -70,6 +72,12 @@ namespace WaterSystem.Rendering
 			EditorGUI.indentLevel--;
 			EditorGUI.PropertyField(EditorGUILayout.GetControlRect(true), layerMask);
 			EditorGUI.PropertyField(EditorGUILayout.GetControlRect(true), shadows);
+			EditorGUI.PropertyField(EditorGUILayout.GetControlRect(true), obliqueProjection);
+			if (obliqueProjection.boolValue == false)
+				EditorGUILayout.HelpBox(
+					"Disabling Oblique Projection will lead to objects refelcting below the water," +
+					" only use this if you are having issue with certaint effects in the relfeciotns like Fog.",
+					MessageType.Info);
 			EditorGUI.PropertyField(EditorGUILayout.GetControlRect(true), rendererMode);
 			if (rendererModeExpand)
 			{

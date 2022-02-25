@@ -38,6 +38,7 @@ namespace WaterSystem.Rendering
             public float m_ClipPlaneOffset = 0.07f;
             public LayerMask m_ReflectLayers = -1;
             public bool m_Shadows;
+            public bool m_ObliqueProjection = true;
             public RendererMode m_RendererMode;
             public int m_RendererIndex;
         }
@@ -150,8 +151,11 @@ namespace WaterSystem.Rendering
             // Setup oblique projection matrix so that near plane is our reflection
             // plane. This way we clip everything below/above it for free.
             var clipPlane = CameraSpacePlane(_reflectionObjects[realCamera].Camera, pos - Vector3.up * 0.1f, normal, 1.0f);
-            var projection = realCamera.CalculateObliqueMatrix(clipPlane);
-            _reflectionObjects[realCamera].Camera.projectionMatrix = projection;
+            if(m_settings.m_ObliqueProjection)
+            {
+                var projection = realCamera.CalculateObliqueMatrix(clipPlane);
+                _reflectionObjects[realCamera].Camera.projectionMatrix = projection;
+            }
             _reflectionObjects[realCamera].Camera.cullingMask = m_settings.m_ReflectLayers; // never render water layer
             _reflectionObjects[realCamera].Camera.transform.position = newPosition;
         }
@@ -295,7 +299,7 @@ namespace WaterSystem.Rendering
             UpdateReflectionObjects(camera, transform);
 
             var data = new PlanarReflectionSettingData(); // save quality settings and lower them for the planar reflections
-            data.Set(); // set quality settings
+            data.Set(!m_settings.m_ObliqueProjection); // set quality settings
 
             BeginPlanarReflections?.Invoke(context, _reflectionObjects[camera].Camera); // callback Action for PlanarReflection
             UniversalRenderPipeline.RenderSingleCamera(context, _reflectionObjects[camera].Camera); // render planar reflections
@@ -318,10 +322,10 @@ namespace WaterSystem.Rendering
                 _lodBias = QualitySettings.lodBias;
             }
 
-            public void Set()
+            public void Set(bool fog)
             {
                 GL.invertCulling = true;
-                RenderSettings.fog = false; // disable fog for now as it's incorrect with projection
+                RenderSettings.fog = fog; // disable fog for now as it's incorrect with projection
                 QualitySettings.maximumLODLevel = 1;
                 QualitySettings.lodBias = _lodBias * 0.5f;
             }

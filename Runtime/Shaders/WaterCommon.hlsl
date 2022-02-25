@@ -51,7 +51,7 @@ half3 Absorption(half depth)
 
 float2 AdjustedDepth(half2 uvs, half4 additionalData)
 {
-	const float rawD = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, sampler_ScreenTextures_linear_clamp, uvs);
+	const float rawD = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, sampler_ScreenTextures_point_clamp, uvs);
 	const float d = LinearEyeDepth(rawD, _ZBufferParams);
 	float x = d * additionalData.x - additionalData.y;
 
@@ -90,7 +90,7 @@ float3 WaterDepth(float3 positionWS, half4 additionalData, half2 screenUVs)// x 
 
 half3 Refraction(half2 distortion, half depth, half edgeFade)
 {
-	half3 output = SAMPLE_TEXTURE2D_LOD(_CameraOpaqueTexture, sampler_CameraOpaqueTexture_linear_clamp, distortion, depth * 0.25).rgb;
+	half3 output = SAMPLE_TEXTURE2D_LOD(_CameraOpaqueTexture, sampler_ScreenTextures_linear_clamp, distortion, depth * 0.25).rgb;
 	output *= max(Absorption(depth), 1-edgeFade);
 	return output;
 }
@@ -270,7 +270,7 @@ float3 WaterShading(WaterInputData input, WaterSurfaceData surfaceData, float4 a
 	half fresnelTerm = CalculateFresnelTerm(input.normalWS, input.viewDirectionWS);
 	
     // Lighting
-	Light mainLight = GetMainLight(TransformWorldToShadowCoord(input.positionWS));
+	Light mainLight = GetMainLight(TransformWorldToShadowCoord(input.positionWS), input.positionWS, 1);
     half volumeShadow = SoftShadows(screenUV, input.positionWS, input.viewDirectionWS, input.depth);
     half3 GI = SampleSH(input.normalWS);
 
