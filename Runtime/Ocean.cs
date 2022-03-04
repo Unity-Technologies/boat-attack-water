@@ -85,7 +85,7 @@ namespace WaterSystem
             else if(_instance != this)
             {
                 Debug.LogError("Multiple Ocean Components cannot exist in tandem");
-                SafeDestroy(this);
+                //SafeDestroy(this);
             }
             
             #if UNITY_EDITOR
@@ -109,7 +109,13 @@ namespace WaterSystem
         private void OnDisable() {
             Cleanup();
         }
-        
+
+        private void OnDestroy()
+        {
+            if (_instance == this)
+                _instance = null;
+        }
+
         void Cleanup()
         {
             GerstnerWavesJobs.Cleanup();

@@ -298,7 +298,7 @@ float3 WaterShading(WaterInputData input, WaterSurfaceData surfaceData, float4 a
 	half3 refraction = Refraction(input.refractionUV, input.depth, edgeFade);
 
 	// Do compositing
-	half3 output = lerp(lerp(refraction, reflection, fresnelTerm) + spec + sss, surfaceData.foam, surfaceData.foamMask);
+	half3 output = lerp(lerp(refraction + sss, reflection + spec, fresnelTerm), surfaceData.foam, surfaceData.foamMask);
 	// final
 	output = MixFog(output, input.fogCoord);
 

@@ -60,7 +60,7 @@ WaveStruct GerstnerWave(half2 pos, float waveCountMulti, half amplitude, half2 d
 	half wa = w * amplitude;
 	// normal vector
 	half3 n = half3(-(windDir.xy * wa * cosCalc),
-					1-(qi * wa * sinCalc));
+					1-qi * wa * sinCalc);
 
 	////////////////////////////////assign to output///////////////////////////////
 	waveOut.position = wave * saturate(amplitude * 10000);
