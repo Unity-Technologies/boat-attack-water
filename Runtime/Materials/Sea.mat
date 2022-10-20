@@ -9,8 +9,7 @@ Material:
   m_PrefabAsset: {fileID: 0}
   m_Name: Sea
   m_Shader: {fileID: 4800000, guid: a94edd303261140cf9e6ce8c90d7a99a, type: 3}
-  m_ShaderKeywords: _DEBUG_DIFFUSE _DEBUG_OFF _GLOSSINESS_FROM_BASE_ALPHA _REFLECTION_PLANARREFLECTION
-    _SPECULAR_COLOR _STATIC_WATER
+  m_ShaderKeywords: 
   m_LightmapFlags: 6
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 1
@@ -56,6 +55,7 @@ Material:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
+    m_Ints: []
     m_Floats:
     - _AlphaClip: 0
     - _Blend: 0

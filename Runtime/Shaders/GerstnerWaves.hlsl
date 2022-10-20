@@ -85,8 +85,6 @@ inline void SampleWaves(float3 position, half opacity, out WaveStruct waveOut)
 {
 	waveOut = (WaveStruct)0;
 	half2 pos = position.xz;
-	//waveOut.position = 0;
-	//waveOut.normal = 0;
 	half waveCountMulti = 1.0 / _WaveCount;
 	opacity = saturate(opacity);
 
@@ -116,7 +114,7 @@ inline void SampleWaves(float3 position, half opacity, out WaveStruct waveOut)
 		waveOut.foam += wave.foam;
 	}
 	waveOut.position *= opacity;// opacityMask;
-	waveOut.normal *= half3(opacity, 1, opacity);
+	waveOut.normal *= float3(opacity, 1, opacity);
 	waveOut.foam *= waveCountMulti * opacity;
 }
 

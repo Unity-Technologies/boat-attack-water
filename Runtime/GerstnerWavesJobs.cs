@@ -22,13 +22,23 @@ namespace WaterSystem
 
         //Details for Buoyant Objects
         private static NativeArray<float3> _positions;
+        private static NativeArray<float3> _dynamicPositions;
         public static int _positionCount;
         private static NativeArray<float3> _wavePos;
+        private static NativeArray<float3> _waveCachedPos;
         private static NativeArray<float3> _waveNormal;
+        private static NativeArray<float3> _waveCachedNormal;
         private static NativeArray<float> _opacity;
+        private static NativeArray<float> _waterDepth;
+        private static NativeArray<float> _depthProfile;
+        private static JobHandle _waterDepthHandle;
+        private static JobHandle _opacityHandle;
         private static JobHandle _waterHeightHandle;
         public static readonly Dictionary<int, int2> Registry = new Dictionary<int, int2>();
         
+        //Details for cameras
+        private static NativeArray<float3> _camPositions;
+        private static readonly Dictionary<Camera, float3> CamRegistry = new Dictionary<Camera, float3>();
 
         public static void Init()
         {
@@ -43,9 +53,20 @@ namespace WaterSystem
             }
 
             _positions = new NativeArray<float3>(4096, Allocator.Persistent);
+            _dynamicPositions = new NativeArray<float3>(4096, Allocator.Persistent);
             _wavePos = new NativeArray<float3>(4096, Allocator.Persistent);
+            _waveCachedPos = new NativeArray<float3>(4096, Allocator.Persistent);
             _waveNormal = new NativeArray<float3>(4096, Allocator.Persistent);
+            _waveCachedNormal = new NativeArray<float3>(4096, Allocator.Persistent);
             _opacity = new NativeArray<float>(4096, Allocator.Persistent);
+            _waterDepth = new NativeArray<float>(4096, Allocator.Persistent);
+
+            _depthProfile = new NativeArray<float>(32, Allocator.Persistent);
+
+            for (int i = 0; i < _depthProfile.Length; i++)
+            {
+                _depthProfile[i] = Ocean.Instance.settingsData._waveDepthProfile.Evaluate((float)i / _depthProfile.Length);
+            }
 
             Initialized = true;
         }
@@ -55,27 +76,32 @@ namespace WaterSystem
             if(Debug.isDebugBuild)
                 Debug.Log("Cleaning up Gerstner Wave Jobs");
             _waterHeightHandle.Complete();
-
+            
+            DepthGenerator.CleanUp();
+            
             //Cleanup native arrays
             _waveData.Dispose();
             _positions.Dispose();
+            _dynamicPositions.Dispose();
             _wavePos.Dispose();
+            _waveCachedPos.Dispose();
             _waveNormal.Dispose();
+            _waveCachedNormal.Dispose();
             _opacity.Dispose();
+            _waterDepth.Dispose();
+            _depthProfile.Dispose();
             Initialized = false;
         }
 
         public static void UpdateSamplePoints(ref NativeArray<float3> samplePoints, int guid)
         {
-            CompleteJobs();
-            
             if (Registry.TryGetValue(guid, out var offsets))
             {
-                for (var i = offsets.x; i < offsets.y; i++) _positions[i] = samplePoints[i - offsets.x];
+                for (var i = offsets.x; i < offsets.y; i++) _dynamicPositions[i] = samplePoints[i - offsets.x];
             }
             else
             {
-                if (_positionCount + samplePoints.Length >= _positions.Length) return;
+                if (_positionCount + samplePoints.Length >= _dynamicPositions.Length) return;
                 
                 offsets = new int2(_positionCount, _positionCount + samplePoints.Length);
                 Registry.Add(guid, offsets);
@@ -109,20 +135,22 @@ namespace WaterSystem
         {
             if (!Registry.TryGetValue(guid, out var offsets)) return;
             
-            _wavePos.Slice(offsets.x, offsets.y - offsets.x).CopyTo(outPos);
+            _waveCachedPos.Slice(offsets.x, offsets.y - offsets.x).CopyTo(outPos);
         }
 
         public static void GetData(int guid, ref float3[] outPos, ref float3[] outNorm)
         {
             if (!Registry.TryGetValue(guid, out var offsets)) return;
             
-            _wavePos.Slice(offsets.x, offsets.y - offsets.x).CopyTo(outPos);
-            _waveNormal.Slice(offsets.x, offsets.y - offsets.x).CopyTo(outNorm);
+            _waveCachedPos.Slice(offsets.x, offsets.y - offsets.x).CopyTo(outPos);
+            _waveCachedNormal.Slice(offsets.x, offsets.y - offsets.x).CopyTo(outNorm);
         }
 
         // Height jobs for the next frame
         public static void UpdateHeights()
         {
+            CompleteJobs();
+            
             if (_processing) return;
             
             _processing = true;
@@ -132,15 +160,29 @@ namespace WaterSystem
 #else
             var t = Application.isPlaying ? Time.time: Time.realtimeSinceStartup;
 #endif
-
-            // TODO need to jobify this
-            for (var index = 0; index < _positions.Length; index++)
+            
+            // Test Water Depth
+            var waterDepth = new DepthGenerator.WaterDepth()
             {
-                var depth = DepthGenerator.GetGlobalDepth(_positions[index]);
-                _opacity[index] = math.saturate(Ocean.Instance.settingsData._waveDepthProfile.Evaluate(1-math.saturate(-depth / 20f)));
-            }
+                Position = _positions,
+                DepthData = DepthGenerator._depthData,
+                DepthValues = DepthGenerator._globalDepthValues,
+                Depth = _waterDepth,
+            };
+            
+            _waterDepthHandle = waterDepth.Schedule(_positionCount, 64);
+            
+            // Generate Opacity Values
+            var opacity = new OpacityJob()
+            {
+                DepthProfile = _depthProfile,
+                DepthValues = _waterDepth,
+                Opacity = _opacity,
+            };
 
-            // Buoyant Object Job
+            _opacityHandle = opacity.Schedule(_positionCount, _waterDepthHandle);
+            
+            // Gerstner Wave Height
             var offset = Ocean.Instance.transform.position.y;
             var waterHeight = new HeightJob()
             {
@@ -154,7 +196,7 @@ namespace WaterSystem
                 Opacity = _opacity,
             };
                 
-            _waterHeightHandle = waterHeight.Schedule(_positionCount, 32);
+            _waterHeightHandle = waterHeight.Schedule(_positionCount, 32, _opacityHandle);
                 
             JobHandle.ScheduleBatchedJobs();
 
@@ -166,6 +208,11 @@ namespace WaterSystem
             if (_firstFrame || !_processing) return;
             
             _waterHeightHandle.Complete();
+            
+            _waveCachedPos.CopyFrom(_wavePos);
+            _waveCachedNormal.CopyFrom(_waveNormal);
+            _positions.CopyFrom(_dynamicPositions);
+            
             _processing = false;
         }
 
@@ -242,12 +289,32 @@ namespace WaterSystem
                         1 - (qi * wa * sinCalc));
                     waveNorm += (norm * waveCountMulti) * amplitude;
                 }
-                wavePos *= Opacity[i];
+                wavePos *= math.saturate(Opacity[i]);
                 wavePos.xz += Position[i].xz;
                 wavePos.y += WaveLevelOffset;
                 OutPosition[i] = wavePos;
                 waveNorm.xy *= Opacity[i];
                 OutNormal[i] = math.normalize(waveNorm.xzy);
+            }
+        }
+
+        [BurstCompile]
+        private struct OpacityJob : IJobFor
+        {
+            [ReadOnly] public NativeArray<float> DepthValues;
+            [ReadOnly] public NativeArray<float> DepthProfile;
+
+            [WriteOnly] public NativeArray<float> Opacity;
+            
+            public void Execute(int index)
+            {
+                var profileIndex = 1.0f - math.saturate(-DepthValues[index] / 20.0f);
+                
+                profileIndex *= DepthProfile.Length;
+                
+                profileIndex = math.clamp(profileIndex, 0.0f, DepthProfile.Length - 1f);
+                
+                Opacity[index] = math.saturate(DepthProfile[(int)math.round(profileIndex)]);
             }
         }
     }

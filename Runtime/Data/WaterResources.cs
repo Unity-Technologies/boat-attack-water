@@ -14,6 +14,7 @@ namespace WaterSystem
         public Texture2D defaultFoamMap; // a default foam texture map
         public Texture2D defaultSurfaceMap; // a default normal/caustic map
         public Texture2D defaultWaterFX; // texture with correct values for default WaterFX
+        public Texture2D ditherNoise; // blue noise normal map
         public Material defaultSeaMaterial;
         public Mesh[] defaultWaterMeshes;
         public Mesh defaultInfinitewWaterMesh;

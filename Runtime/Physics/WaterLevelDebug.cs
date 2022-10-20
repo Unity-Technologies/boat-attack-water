@@ -43,10 +43,10 @@ namespace WaterSystem.Physics
 
         private void Update()
         {
-            UpdateSamplePoints();
+            if(transform.hasChanged)
+                UpdateSamplePoints();
             GerstnerWavesJobs.UpdateSamplePoints(ref samplePositions, gameObject.GetInstanceID());
             GerstnerWavesJobs.GetData(gameObject.GetInstanceID(), ref positions);
-            
         }
 
         private void UpdateSamplePoints()

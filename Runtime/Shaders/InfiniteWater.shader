@@ -3,9 +3,7 @@
 	Properties
 	{
 		_Size ("size", float) = 3.0
-		_DitherPattern ("Dithering Pattern", 2D) = "bump" {}
 		[Toggle(_STATIC_SHADER)] _Static ("Static", Float) = 0
-		[KeywordEnum(Off, SSS, Refraction, Reflection, Normal, Fresnel, WaterEffects, Foam, WaterDepth)] _Debug ("Debug mode", Float) = 0
 	}
 	SubShader
 	{
@@ -21,15 +19,17 @@
 			HLSLPROGRAM
 			#pragma prefer_hlslcc gles
 			/////////////////SHADER FEATURES//////////////////
-			#pragma multi_compile_fragment _REFLECTION_CUBEMAP _REFLECTION_PROBES _REFLECTION_PLANARREFLECTION
-			#pragma multi_compile _ _STATIC_SHADER
-			#pragma multi_compile_fragment _ _BOATATTACK_WATER_DEBUG
+			#pragma multi_compile_fragment _REFLECTION_CUBEMAP _REFLECTION_PROBES _REFLECTION_PLANARREFLECTION _REFLECTION_SSR
+			#pragma shader_feature_local _STATIC_SHADER
+			#pragma multi_compile_fragment _ BOAT_ATTACK_WATER_DEBUG_DISPLAY
+
+			#pragma multi_compile_fragment _SSR_SAMPLES_LOW _SSR_SAMPLES_MEDIUM _SSR_SAMPLES_HIGH 
+			
             // -------------------------------------
             // Lightweight Pipeline keywords
-            #pragma multi_compile_fragment _ _MAIN_LIGHT_SHADOWS
-            #pragma multi_compile_fragment _ _MAIN_LIGHT_SHADOWS_CASCADE
+            #pragma multi_compile_fragment _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE
             #pragma multi_compile_fragment _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
-            #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
+            //#pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
 			#pragma multi_compile_fragment _ _LIGHT_COOKIES
             #pragma multi_compile_fragment _ _SHADOWS_SOFT
 
@@ -59,8 +59,8 @@
 
 				float3 cameraOffset = GetCameraPositionWS();
             	input.positionOS.xz *= _BoatAttack_Water_DistanceBlend; // scale range to blend distance
-            	input.positionOS.y *= cameraOffset.y - _WaveHeight; // scale height to camera
-				input.positionOS.y -= cameraOffset.y - _WaveHeight;
+            	input.positionOS.y *= cameraOffset.y - _WaveHeight * 2; // scale height to camera
+				input.positionOS.y -= cameraOffset.y - _WaveHeight * 2;
 
                 VertexPositionInputs vertexInput = GetVertexPositionInputs(input.positionOS.xyz);
 				output.positionCS = vertexInput.positionCS;
@@ -78,9 +78,8 @@
 
 			Output InfiniteWaterFragment(Varyings i)
 			{
-			    half4 screenUV = 0.0;
-	            screenUV.xy  = i.screenPosition.xy / i.screenPosition.w; // screen UVs
-	            screenUV.zw  = screenUV.xy; // screen UVs
+			    float2 screenUV = i.screenPosition.xy / i.screenPosition.w; // screen UVs
+	            //screenUV.zw  = screenUV.xy; // screen UVs
                 //half2 screenUV = i.screenPosition.xy / i.screenPosition.w; // screen UVs
 
                 half4 waterBufferA = WaterBufferA(screenUV.xy);
@@ -88,7 +87,7 @@
 
 				InfinitePlane plane = WorldPlane(i.viewDirectionWS, i.positionWS);
 				i.positionWS = plane.positionWS;
-                half3 viewDirectionWS = GetCameraPositionWS().xyz - i.positionWS.xyz;
+                float3 viewDirectionWS = GetCameraPositionWS().xyz - i.positionWS.xyz;
 				float3 viewPos = TransformWorldToView(i.positionWS);
 				float4 additionalData = float4(length(viewPos / viewPos.z), length(viewDirectionWS), waterBufferA.w, 0);
 
@@ -97,8 +96,8 @@
                 i.normalWS = half3(0.0, 1.0, 0.0);
                 i.viewDirectionWS = normalize(GetCameraPositionWS() - i.positionWS).xyzz;
                 i.additionalData = additionalData;
-                i.uv = DetailUVs(i.positionWS * (1 / _Size), 1);
-            	i.preWaveSP = screenUV.xyz;
+                i.uv = DetailUVs(i.positionWS * 0.2, 1);
+            	i.preWaveSP = screenUV.xyy;
 
                 WaterInputData inputData;
                 InitializeInputData(i, inputData, screenUV.xy);

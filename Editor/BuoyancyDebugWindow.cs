@@ -4,11 +4,7 @@ using WaterSystem;
 
 public class BuoyancyDebugWindow : EditorWindow
 {
-    string myString = "Hello World";
-    bool groupEnabled;
-    bool myBool = true;
-    float myFloat = 1.23f;
-    
+    private Vector2 _scrollPosition;
     // Add menu named "My Window" to the Window menu
     [MenuItem("Window/URP Water System/Buoyancy Debug")]
     private static void Init()
@@ -28,11 +24,14 @@ public class BuoyancyDebugWindow : EditorWindow
             MessageType.None);
 
         EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+        _scrollPosition = EditorGUILayout.BeginScrollView(_scrollPosition);
         var count = 0;
         foreach (var registryEntry in GerstnerWavesJobs.Registry)
         {
             var obj = EditorUtility.InstanceIDToObject(registryEntry.Key);
-            EditorGUILayout.BeginHorizontal();
+            var box = EditorGUILayout.BeginHorizontal();
+            if(count % 2 == 0)
+                GUI.Box(box, GUIContent.none);
             EditorGUILayout.LabelField($"{obj.name}", $"GUID:{registryEntry.Key}");
             EditorGUILayout.LabelField($"indicies:{registryEntry.Value.x}-{registryEntry.Value.y}",
                 $"size:{registryEntry.Value.y - registryEntry.Value.x}");
@@ -44,5 +43,6 @@ public class BuoyancyDebugWindow : EditorWindow
             EditorGUILayout.EndHorizontal();
         }
         EditorGUILayout.EndVertical();
+        EditorGUILayout.EndScrollView();
     }
 }

@@ -1,12 +1,20 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Mathematics;
+using UnityEngine.Rendering;
 using WaterSystem.Rendering;
 
 namespace WaterSystem
 {
     public class Data
     {
+        // Shader Keywords
+        private static readonly string KeyRefCubemap = "_REFLECTION_CUBEMAP";
+        private static readonly string KeyRefProbe = "_REFLECTION_PROBES";
+        private static readonly string KeyRefPlanar = "_REFLECTION_PLANARREFLECTION";
+        private static readonly string KeyRefSSR = "_REFLECTION_SSR";
+        
         /// <summary>
         /// This class stores the settings for a water system
         /// </summary>
@@ -17,6 +25,7 @@ namespace WaterSystem
             public GeometryType waterGeomType; // The type of geometry, either vertex offset or tessellation
             public ReflectionType refType = ReflectionType.PlanarReflection; // How the reflections are generated
             public PlanarReflections.PlanarReflectionSettings planarSettings;
+            public SSRSettings SsrSettings = new SSRSettings();
             public bool isInfinite; // Is the water infinite (shader incomplete)
             public float distanceBlend = 100.0f;
             public int randomSeed = 3234;
@@ -44,12 +53,30 @@ namespace WaterSystem
             public float _foamIntensity = 1.0f;
             public AnimationCurve _shoreFoamProfile = AnimationCurve.Linear(0.02f, 1f, 0.98f, 0f);
         }
+
+        [Serializable]
+        public class SSRSettings
+        {
+            public SSRSteps Steps = SSRSteps.Medium;
+            [Range(0.01f, 1f)]
+            public float StepSize = 0.1f;
+            [Range(0.25f, 3f)]
+            public float Thickness = 2f;
+        }
+
+        [Serializable]
+        public enum SSRSteps
+        {
+            Low = 8,
+            Medium = 16,
+            High = 32,
+        }
         
         /// <summary>
         /// Basic wave type, this is for the base Gerstner wave values
         /// it will drive automatic generation of n amount of waves
         /// </summary>
-        [System.Serializable]
+        [Serializable]
         public class BasicWaves
         {
             [Range(3, 12)]
@@ -70,7 +97,7 @@ namespace WaterSystem
         /// <summary>
         /// Class to describe a single Gerstner Wave
         /// </summary>
-        [System.Serializable]
+        [Serializable]
         public struct Wave
         {
             public float amplitude; // height of the wave in units(m)
@@ -92,18 +119,36 @@ namespace WaterSystem
         /// <summary>
         /// The type of reflection source, custom cubemap, closest refelction probe, planar reflection
         /// </summary>
-        [System.Serializable]
+        [Serializable]
         public enum ReflectionType
         {
             Cubemap,
             ReflectionProbe,
-            PlanarReflection
+            PlanarReflection,
+            ScreenSpaceReflection,
+        }
+
+        public static string GetReflectionKeyword(ReflectionType type)
+        {
+            switch (type)
+            {
+                case ReflectionType.Cubemap:
+                    return KeyRefCubemap;
+                case ReflectionType.ReflectionProbe:
+                    return KeyRefProbe;
+                case ReflectionType.PlanarReflection:
+                    return KeyRefPlanar;
+                case ReflectionType.ScreenSpaceReflection:
+                    return KeyRefSSR;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(type), type, null);
+            }
         }
         
         /// <summary>
         /// The type of geometry, either vertex offset or tessellation
         /// </summary>
-        [System.Serializable]
+        [Serializable]
         public enum GeometryType
         {
             VertexOffset,

@@ -3,10 +3,6 @@
 
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
-CBUFFER_START(UnityPerMaterial)
-half4 _DitherPattern_TexelSize;
-CBUFFER_END
-
 half3 _AbsorptionColor;
 half3 _ScatteringColor;
 int _BoatAttack_Water_DebugPass;
@@ -18,15 +14,20 @@ half _MaxDepth;
 half _MaxWaveHeight;
 half4 _VeraslWater_DepthCamParams;
 float4x4 _InvViewProjection;
+half3 _SSR_Settings;
+
+#define SSR_STEP_SIZE _SSR_Settings.x
+#define SSR_THICKNESS _SSR_Settings.y
 
 // Screen Effects textures
 SAMPLER(sampler_ScreenTextures_point_clamp);
 #if defined(_REFLECTION_PLANARREFLECTION)
 TEXTURE2D(_PlanarReflectionTexture);
-#elif defined(_REFLECTION_CUBEMAP)
+#endif
+//#elif defined(_REFLECTION_CUBEMAP)
 TEXTURECUBE(_CubemapTexture);
 SAMPLER(sampler_CubemapTexture);
-#endif
+//#endif
 TEXTURE2D(_WaterBufferA);
 TEXTURE2D(_WaterBufferB);
 TEXTURE2D(_CameraDepthTexture);
@@ -35,7 +36,7 @@ TEXTURE2D(_CameraOpaqueTexture); SAMPLER(sampler_ScreenTextures_linear_clamp);
 // Surface textures
 TEXTURE2D(_SurfaceMap); SAMPLER(sampler_SurfaceMap);
 TEXTURE2D(_FoamMap); SAMPLER(sampler_FoamMap);
-TEXTURE2D(_DitherPattern); SAMPLER(sampler_DitherPattern);
+TEXTURE2D(_DitherPattern); SAMPLER(sampler_DitherPattern); half4 _DitherPattern_TexelSize;
 
 // Data Textures
 TEXTURE2D(_BoatAttack_RampTexture); SAMPLER(sampler_BoatAttack_Linear_Clamp_RampTexture);
@@ -55,7 +56,7 @@ struct Varyings // fragment struct
 {
 	float4	uv 						: TEXCOORD0;	// Geometric UVs stored in xy, and world(pre-waves) in zw
 	float3	positionWS				: TEXCOORD1;	// world position of the vertices
-	half3 	normalWS 				: NORMAL;		// vert normals
+	float3 	normalWS 				: NORMAL;		// vert normals
 	float4 	viewDirectionWS 		: TEXCOORD2;	// view direction
 	float3	preWaveSP 				: TEXCOORD3;	// screen position of the verticies before wave distortion
 	half2 	fogFactorNoise          : TEXCOORD4;	// x: fogFactor, y: noise
@@ -81,15 +82,15 @@ struct WaterSurfaceData
 {
     half3   absorption;
 	half3   scattering;
-    half    foam;
+    half3    foam;
     half    foamMask;
 };
 
 struct WaterInputData
 {
     float3 positionWS;
-    half3 normalWS;
-    half3 viewDirectionWS;
+    float3 normalWS;
+    float3 viewDirectionWS;
     float2 reflectionUV;
     float2 refractionUV;
     float4 detailUV;
@@ -99,6 +100,7 @@ struct WaterInputData
     half fogCoord;
     float depth;
     half3 GI;
+	half3 screenNoise;
 };
 
 struct WaterLighting

@@ -55,6 +55,7 @@ namespace WaterSystem
         private SerializedProperty cubemap;
         
         private SerializedProperty planarSettings;
+        private SerializedProperty ssrSettings;
         // flow
         // shore
         private SerializedProperty foamIntensity;
@@ -98,6 +99,7 @@ namespace WaterSystem
             refelctionType = settings.FindPropertyRelative(nameof(Data.OceanSettings.refType));
             cubemap = settings.FindPropertyRelative(nameof(Data.OceanSettings.cubemapRefType));
             planarSettings = settings.FindPropertyRelative(nameof(Data.OceanSettings.planarSettings));
+            ssrSettings = settings.FindPropertyRelative(nameof(Data.OceanSettings.SsrSettings));
 
             // Shore
             foamIntensity = settings.FindPropertyRelative(nameof(Data.OceanSettings._foamIntensity));
@@ -116,10 +118,13 @@ namespace WaterSystem
             {
                 DoSection((Sections)value);
             }
-            
-            serializedObject.ApplyModifiedProperties();
-            if (EditorGUI.EndChangeCheck()) ocean?.Init();
 
+            serializedObject.ApplyModifiedProperties();
+            
+            if (EditorGUI.EndChangeCheck())
+            {
+                ocean.Init();
+            }
             //DoRaw(); //  draws original GUI
         }
 
@@ -181,6 +186,11 @@ namespace WaterSystem
                     break;
                 case Data.ReflectionType.PlanarReflection:
                     EditorGUILayout.PropertyField(planarSettings);
+                    break;
+                case Data.ReflectionType.ScreenSpaceReflection:
+                    EditorGUILayout.PropertyField(ssrSettings);
+                    EditorGUILayout.LabelField("Fallback Cubemap", EditorStyles.boldLabel);
+                    EditorGUILayout.PropertyField(cubemap, Styles.cubemap);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();

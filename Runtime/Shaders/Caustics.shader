@@ -122,12 +122,13 @@
                 float CausticsDriver = (A.z * B.z) * 10 + A.z + B.z;
                 
                 // Mask caustics from above water and fade below
-                half upperMask = saturate(-WorldPos.y + _WaterLevel);
-                half lowerMask = saturate((WorldPos.y - _WaterLevel) / _BlendDistance + _BlendDistance);
+                half level = _WaterLevel - 0.5;
+                half upperMask = saturate(-WorldPos.y + level);
+                half lowerMask = saturate((WorldPos.y - level) / _BlendDistance + _BlendDistance);
                 CausticsDriver *= min(upperMask, lowerMask);
                 
                 // Fake light dispersion
-                half3 Caustics = CausticsDriver * half3(A.w * 0.5, B.w * 0.75, B.x) * MainLight.color;
+                half3 Caustics = CausticsDriver * half3(A.w * 0.5, B.w * 0.75, B.x) * MainLight.color * 0.5;
                 
 #ifdef _DEBUG
                 return real4(Caustics, 1.0);

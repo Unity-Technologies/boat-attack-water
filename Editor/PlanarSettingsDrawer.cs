@@ -39,23 +39,6 @@ namespace WaterSystem.Rendering
 			// Setup of extra data
 			rendererModeExpand = (PlanarReflections.RendererMode)rendererMode.enumValueIndex != PlanarReflections.RendererMode.Match;
 			
-			// Don't make child fields be indented
-			//var indent = EditorGUI.indentLevel;
-			//EditorGUI.indentLevel = 0;
-
-			/*
-			// Rects
-			Rect resMultiRect = new Rect(position.x, position.y, position.width, EditorGUIUtility.singleLineHeight);
-			Rect offsetRect = new Rect(position.x, resMultiRect.yMax + EditorGUIUtility.standardVerticalSpacing, position.width, EditorGUIUtility.singleLineHeight);
-			Rect layerMaskRect = new Rect(position.x, offsetRect.yMax + EditorGUIUtility.standardVerticalSpacing, position.width, EditorGUIUtility.singleLineHeight);
-			Rect shadowRect = new Rect(position.x, layerMaskRect.yMax + EditorGUIUtility.standardVerticalSpacing, position.width * 0.5f, EditorGUIUtility.singleLineHeight);
-			Rect maxLODRect = new Rect(position.x + position.width * 0.5f, layerMaskRect.yMax + EditorGUIUtility.standardVerticalSpacing, position.width * 0.5f, EditorGUIUtility.singleLineHeight);
-			Rect rendererModeRect = new Rect(position.x, shadowRect.yMax + EditorGUIUtility.standardVerticalSpacing, position.width, EditorGUIUtility.singleLineHeight);
-			Rect rendererIndexRect = new Rect(position.x, rendererModeRect.yMax + EditorGUIUtility.standardVerticalSpacing, position.width, EditorGUIUtility.singleLineHeight);
-*/
-
-			//Rect newRect = EditorGUILayout.GetControlRect(true);
-			
 			EditorGUI.PropertyField(position, resolutionMode);
 			EditorGUI.indentLevel++;
 			switch (resolutionMode.enumValueIndex)
@@ -85,31 +68,7 @@ namespace WaterSystem.Rendering
 				EditorGUI.PropertyField(EditorGUILayout.GetControlRect(true), rendererIndex);
 				EditorGUI.indentLevel--;
 			}
-
-			/*
-			var resMulti = property.FindPropertyRelative("m_ResolutionMultiplier");
-			EditorGUI.PropertyField(resMultiRect, resMulti);
-			position.y += EditorGUIUtility.singleLineHeight;
-			var offset = property.FindPropertyRelative("m_ClipPlaneOffset");
-			EditorGUI.Slider(offsetRect, offset, -0.500f, 0.500f);
-			var layerMask = property.FindPropertyRelative("m_ReflectLayers");
-			EditorGUI.PropertyField(layerMaskRect, layerMask);
-			var shadows = property.FindPropertyRelative("m_Shadows");
-			EditorGUI.PropertyField(shadowRect, shadows);
-			
-			EditorGUI.PropertyField(rendererModeRect, rendererMode);
-			
-			*/
-			
-			// Set indent back to what it was
-			//EditorGUI.indentLevel = indent;
-
 			EditorGUI.EndProperty();
 		}
-
-		//public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
-		//{
-		//	return (EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing) * 4f;
-		//}
 	}
 }

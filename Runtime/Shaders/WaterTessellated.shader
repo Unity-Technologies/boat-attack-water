@@ -22,7 +22,7 @@
 			#pragma shader_feature _ _TESSELLATION
 			#define _TESSELLATION 1
 						
-			#pragma multi_compile _REFLECTION_CUBEMAP _REFLECTION_PROBES _REFLECTION_PLANARREFLECTION
+			#pragma multi_compile _REFLECTION_CUBEMAP _REFLECTION_PROBES _REFLECTION_PLANARREFLECTION _REFLECTION_SSR
 			#pragma multi_compile _ USE_STRUCTURED_BUFFER
             
             // -------------------------------------
