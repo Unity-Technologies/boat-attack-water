@@ -7,32 +7,38 @@ namespace WaterSystem.Physics
     [CustomEditor(typeof(BuoyantObject))]
     public class BuoyantObjectEditor : Editor
     {
-        private BuoyantObject obj;
+        private BuoyantObject Obj => serializedObject.targetObject as BuoyantObject;
+
         [SerializeField]
         private bool _heightsDebugBool;
+
         [SerializeField]
         private bool _generalSettingsBool;
 
-        private void OnEnable()
-        {
-            obj = serializedObject.targetObject as BuoyantObject;
-        }
-
         public override void OnInspectorGUI()
         {
-            _generalSettingsBool = EditorGUILayout.Foldout(_generalSettingsBool, "General Settings");
+            if (!EditorApplication.isPlaying)
+            {
+                base.OnInspectorGUI();
+                return;
+            }
+
+            _generalSettingsBool = EditorGUILayout.BeginFoldoutHeaderGroup(_generalSettingsBool, "General Settings");
+            EditorGUILayout.EndFoldoutHeaderGroup();
             if (_generalSettingsBool)
             {
                 base.OnInspectorGUI();
             }
 
-            if (EditorGUILayout.BeginFoldoutHeaderGroup(_heightsDebugBool, "Height Debug Values"))
+            _heightsDebugBool = EditorGUILayout.BeginFoldoutHeaderGroup(_heightsDebugBool, "Height Debug Values");
+            EditorGUILayout.EndFoldoutHeaderGroup();
+            if (_heightsDebugBool)
             {
-                if (obj.Heights != null)
+                if (Obj.Heights != null)
                 {
-                    for (var i = 0; i < obj.Heights.Length; i++)
+                    for (var i = 0; i < Obj.Heights.Length; i++)
                     {
-                        var h = obj.Heights[i];
+                        var h = Obj.Heights[i];
                         EditorGUILayout.LabelField($"{i})Wave(heights):", $"X:{h.x:00.00} Y:{h.y:00.00} Z:{h.z:00.00}");
                     }
                 }
@@ -41,7 +47,6 @@ namespace WaterSystem.Physics
                     EditorGUILayout.HelpBox("Height debug info only available in playmode.", MessageType.Info);
                 }
             }
-            EditorGUILayout.EndFoldoutHeaderGroup();
         }
     }
 }

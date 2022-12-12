@@ -121,37 +121,37 @@ namespace WaterSystem.Physics
 
         private void Update()
         {
+            switch (_buoyancyType)
+            {
+                case BuoyancyType.Physical:
+                case BuoyancyType.PhysicalVoxel:
+                    return;
+            }
+
 #if STATIC_EVERYTHING
             var dt = 0.0f;
 #else
             var dt = Time.deltaTime;
 #endif
+
             switch (_buoyancyType)
             {
                 case BuoyancyType.NonPhysical:
-                {
-                    _samplePoints[0] = transform.position;
-                    var t = transform;
-                    var vec  = t.position;
-                    vec.y = Heights[0].y + waterLevelOffset;
-                    t.position = vec;
-                    var up = t.up;
-                    t.up = Vector3.Slerp(up, _normals[0], dt);
-                    break;
-                }
+                    {
+                        _samplePoints[0] = transform.position;
+                        var t = transform;
+                        var vec  = t.position;
+                        vec.y = Heights[0].y + waterLevelOffset;
+                        t.position = vec;
+                        var up = t.up;
+                        t.up = Vector3.Slerp(up, _normals[0], dt);
+                        break;
+                    }
                 case BuoyancyType.NonPhysicalVoxel:
                     // do the voxel non-physical
                     break;
-                case BuoyancyType.Physical:
-                    LocalToWorldJob.CompleteJob(_guid);
-                    GetVelocityPoints();
-                    break;
-                case BuoyancyType.PhysicalVoxel:
-                    LocalToWorldJob.CompleteJob(_guid);
-                    GetVelocityPoints();
-                    break;
                 default:
-                    throw new ArgumentOutOfRangeException();
+                    return;
             }
             
             GerstnerWavesJobs.UpdateSamplePoints(ref _samplePoints, _guid);
@@ -161,33 +161,44 @@ namespace WaterSystem.Physics
         private void FixedUpdate()
         {
             var submergedAmount = 0f;
-            
+
+            switch (_buoyancyType)
+            {
+                case BuoyancyType.NonPhysical:
+                case BuoyancyType.NonPhysicalVoxel:
+                    return;
+            }
+
+            LocalToWorldJob.CompleteJob(_guid);
+            GetVelocityPoints();
+            GerstnerWavesJobs.UpdateSamplePoints(ref _samplePoints, _guid);
+            GerstnerWavesJobs.GetData(_guid, ref Heights, ref _normals);
+
             switch (_buoyancyType)
             {
                 case BuoyancyType.PhysicalVoxel:
-                {
-                    LocalToWorldJob.CompleteJob(_guid);
-                    //Debug.Log("new pass: " + gameObject.name);
-                    UnityPhysics.autoSyncTransforms = false;
+                    {
+                        LocalToWorldJob.CompleteJob(_guid);
 
-                    for (var i = 0; i < _voxels.Length; i++)
-                        BuoyancyForce(_samplePoints[i], _velocity[i], Heights[i].y + waterLevelOffset, ref submergedAmount, ref _debugInfo[i]);
-                    UnityPhysics.SyncTransforms();
-                    UnityPhysics.autoSyncTransforms = true;
-                    UpdateDrag(submergedAmount);
-                    break;
-                }
+                        var autoSyncTransforms = UnityPhysics.autoSyncTransforms;
+                        UnityPhysics.autoSyncTransforms = false;
+
+                        for (var i = 0; i < _voxels.Length; i++)
+                            BuoyancyForce(_samplePoints[i], _velocity[i], Heights[i].y + waterLevelOffset, ref submergedAmount, ref _debugInfo[i]);
+
+                        UnityPhysics.SyncTransforms();
+                        UnityPhysics.autoSyncTransforms = autoSyncTransforms;
+
+                        UpdateDrag(submergedAmount);
+                        break;
+                    }
                 case BuoyancyType.Physical:
-                    //LocalToWorldJob.CompleteJob(_guid);
+                    LocalToWorldJob.CompleteJob(_guid);
                     BuoyancyForce(Vector3.zero, _velocity[0], Heights[0].y + waterLevelOffset, ref submergedAmount, ref _debugInfo[0]);
                     //UpdateDrag(submergedAmount);
                     break;
-                case BuoyancyType.NonPhysical:
-                    break;
-                case BuoyancyType.NonPhysicalVoxel:
-                    break;
                 default:
-                    throw new ArgumentOutOfRangeException();
+                    return;
             }
         }
 
