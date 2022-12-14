@@ -220,8 +220,10 @@ namespace WaterSystem.Physics
             {
                 LocalToWorldJob.Cleanup(_guid);
             }
-
-            _samplePoints.Dispose();
+            else
+            {
+                _samplePoints.Dispose();
+            }
         }
 
         private void LocalToWorldConversion()
