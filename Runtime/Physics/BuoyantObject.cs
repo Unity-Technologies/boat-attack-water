@@ -269,6 +269,7 @@ namespace WaterSystem.Physics
             var size = t.localScale;
             t.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
             t.localScale = Vector3.one;
+            UnityPhysics.SyncTransforms();
 
             _voxels = null;
             var points = new List<Vector3>();
@@ -305,6 +306,8 @@ namespace WaterSystem.Physics
             _voxels = points.ToArray();
 			t.SetPositionAndRotation(pos, rot);
             t.localScale = size;
+            UnityPhysics.SyncTransforms();
+
             var voxelVolume = Mathf.Pow(voxelResolution, 3f) * _voxels.Length;
             var rawVolume = rawBounds.size.x * rawBounds.size.y * rawBounds.size.z;
             volume = Mathf.Min(rawVolume, voxelVolume);
