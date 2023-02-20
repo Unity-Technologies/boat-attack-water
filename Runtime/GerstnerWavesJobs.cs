@@ -313,8 +313,8 @@ namespace WaterSystem
                 profileIndex *= DepthProfile.Length;
                 
                 profileIndex = math.clamp(profileIndex, 0.0f, DepthProfile.Length - 1f);
-                
-                Opacity[index] = math.saturate(DepthProfile[(int)math.round(profileIndex)]);
+
+                Opacity[index] = math.saturate(math.pow(DepthProfile[(int)math.round(profileIndex)], 0.4545f));
             }
         }
     }

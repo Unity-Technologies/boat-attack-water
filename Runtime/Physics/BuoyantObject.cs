@@ -37,7 +37,7 @@ namespace WaterSystem.Physics
         private int _guid; // GUID for the height system
         private float3 _localArchimedesForce;
 
-		private Vector3[] _voxels; // voxel position
+		[SerializeField]private Vector3[] _voxels; // voxel position
         private NativeArray<float3> _samplePoints; // sample points for height calc
         [NonSerialized] public float3[] Heights; // water height array(only size of 1 when simple or non-physical)
         private float3[] _normals; // water normal array(only used when non-physical and size of 1 also when simple)
@@ -342,11 +342,12 @@ namespace WaterSystem.Physics
         {
 			const float gizmoSize = 0.05f;
             var t = transform;
-            var matrix = Matrix4x4.TRS(t.position, t.rotation, t.lossyScale);
-
+            Gizmos.matrix = t.localToWorldMatrix;
+            var c = Color.yellow;
+            
             if (_voxels != null)
             {
-                Gizmos.color = Color.yellow;
+                Gizmos.color = c;
 
                 foreach (var p in _voxels)
                 {
@@ -354,7 +355,9 @@ namespace WaterSystem.Physics
                 }
             }
 
-            Gizmos.matrix = matrix;
+            c.a = 0.25f;
+            Gizmos.color = c;
+            
             if (voxelResolution >= 0.1f)
 			{
                 Gizmos.DrawWireCube(_voxelBounds.center, _voxelBounds.size);
@@ -375,18 +378,19 @@ namespace WaterSystem.Physics
             Gizmos.color = Color.red;
             Gizmos.DrawSphere(_voxelBounds.center + centerOfMass, 0.2f);
 
-            Gizmos.matrix = Matrix4x4.identity;Gizmos.matrix = Matrix4x4.identity;
+            Gizmos.matrix = Matrix4x4.identity;
 
             if (_debugInfo != null)
             {
                 foreach (DebugDrawing debug in _debugInfo)
                 {
-                    Gizmos.color = Color.cyan;
+                    var inWater = debug.Force.sqrMagnitude > 0f;
+                    Gizmos.color = inWater ? Color.red : Color.cyan;
                     Gizmos.DrawCube(debug.Position, new Vector3(gizmoSize, gizmoSize, gizmoSize)); // drawCenter
                     var water = debug.Position;
                     water.y = debug.WaterHeight;
                     Gizmos.DrawLine(debug.Position, water); // draw the water line
-                    Gizmos.DrawSphere(water, gizmoSize * 4f);
+                    Gizmos.DrawSphere(water, gizmoSize * (inWater ? 2f : 1f));
                     if(_buoyancyType == BuoyancyType.Physical || _buoyancyType == BuoyancyType.PhysicalVoxel)
                     {
                         Gizmos.color = Color.red;

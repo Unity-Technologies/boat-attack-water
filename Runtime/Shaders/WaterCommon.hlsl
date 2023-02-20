@@ -29,6 +29,17 @@
 #endif
 
 
+float LodBlend(float3 positionWS)
+{
+	// tile size SS
+	float dist = distance(positionWS, GetCameraPositionWS());
+	float cameraFov = _CameraFov;
+	float tileSize = RadToDeg(atan(GetObjectScale / dist)) / cameraFov;
+	// Lod value
+	float2 density = float2(0.5, 1) * GetMeshDensity;
+	return saturate(Remap(tileSize, float4(density, 1, 0)));
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 //          	   	       Water debug functions                             //
 ///////////////////////////////////////////////////////////////////////////////
@@ -41,6 +52,16 @@ half3 DebugWaterFX(half3 input, half4 waterFX, half screenUV)
     disp += lerp(0, half3(0, 0, 1), saturate(((1-waterFX.www) - 0.5) * 4));
     input = lerp(input, disp, saturate(floor(screenUV + 0.3)));
     return input;
+}
+
+half3 MeshDebugView(float3 positionWS)
+{
+	half hue = GetMeshDivision * 0.125;
+	half3 tileColor = HsvToRgb(half3(hue, 0.9, 0.9));
+
+	half blend = LodBlend(positionWS);
+	
+	return tileColor * blend;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -97,16 +118,24 @@ float3 WaterDepth(float3 positionWS, float4 additionalData, float2 screenUVs)// 
 	return out_depth;
 }
 
-half3 Refraction(half2 distortion, half depth, half edgeFade)
+half3 Refraction(half4 distortion, half depth, half edgeFade)
 {
-	half3 output = SAMPLE_TEXTURE2D_LOD(_CameraOpaqueTexture, sampler_ScreenTextures_linear_clamp, distortion, depth * 0.25).rgb;
+	half3 output;
+	half lod = depth * 0.25;
+#ifdef _DISPERSION
+	output.r = SAMPLE_TEXTURE2D_LOD(_CameraOpaqueTexture, sampler_ScreenTextures_linear_clamp, distortion.xy, lod).r;
+	output.g = SAMPLE_TEXTURE2D_LOD(_CameraOpaqueTexture, sampler_ScreenTextures_linear_clamp, lerp(distortion.xy, distortion.zw, 0.5), lod).g;
+	output.b = SAMPLE_TEXTURE2D_LOD(_CameraOpaqueTexture, sampler_ScreenTextures_linear_clamp, distortion.zw, lod).b;
+#else
+	output = SAMPLE_TEXTURE2D_LOD(_CameraOpaqueTexture, sampler_ScreenTextures_linear_clamp, distortion.xy, lod).rgb;
+#endif
 	output *= max(Absorption(depth), 1-edgeFade);
 	return output;
 }
 
-half2 DistortionUVs(half depth, float3 normalWS, float3 viewDirectionWS)
+half4 DistortionUVs(inout float2 screenUV, half depth, float3 normalWS, float3 viewDirectionWS, float3 positionWS)
 {
-    half3 viewNormal = mul((float3x3)GetWorldToHClipMatrix(), -normalWS).xyz;
+    half2 viewNormal = mul((float3x3)GetWorldToViewMatrix(), -normalWS).xy;// * (depth * 0.01);
 
 	//float4x4 viewMat = GetWorldToViewMatrix();
 	//half3 f = viewMat[1].xyz;
@@ -117,8 +146,25 @@ half2 DistortionUVs(half depth, float3 normalWS, float3 viewDirectionWS)
 	
 	//half2 distortion = half2(viewNormal.x, y);
 	//half2 distortion = half2(viewNormal.x, viewNormal.y - d);
-	
-    return viewNormal.xz * clamp(0, 0.1, saturate(depth * 0.05));
+
+	half a = 500; // when dist = this t = 0
+	half b = 0; // when dist = this t = 1
+	half dist = distance(positionWS, GetCameraPositionWS());
+
+	normalWS.xz *= 0.25;
+	normalWS.xz *= saturate((dist - a)/(b - a));
+
+	half distortionIntensity = 0.16;
+	half dispersionIntensity = 0.1;
+
+	#ifdef _DISPERSION
+	half2 distortionA = screenUV + normalWS.xz * saturate(depth * distortionIntensity - dispersionIntensity);
+	#else
+	half2 distortionA = screenUV + normalWS.xz * saturate(depth * distortionIntensity);
+	#endif
+	half2 distortionB = screenUV + normalWS.xz * saturate(depth * distortionIntensity + dispersionIntensity);
+	half4 output = half4(distortionA, distortionB);
+    return output;
 }
 
 float4 AdditionalData(float3 postionWS, WaveStruct wave)
@@ -146,7 +192,6 @@ half3 GetDetailCascades(float3 dist)
 	
 	half blend = 1 - abs(1 - 2 * frac(raw));
 	
-	//return x * x *( 3.0 - 2.0 * x );
 	blend = blend * blend *( 3.0 - 2.0 * blend);
 	
 	return half3(uvScales.xy * uvScales.xy * uvScales.xy * uvScales.xy, blend);
@@ -156,7 +201,7 @@ float4 DetailUVs(float3 positionWS, half noise)
 {
 	half3 dist = GetDetailCascades(positionWS);
 
-	float2 scale = float2(0.24, 0.16);
+	float2 scale = float2(0.16, 0.08);
 	noise *= 0.05;
 
 	float2 s = sin(dist.x);
@@ -164,8 +209,8 @@ float4 DetailUVs(float3 positionWS, half noise)
 	float2x2 rotA = float2x2(c.x, -s.x, s.x, c.x);
 	
     float4 output = positionWS.xzxz * scale.xxyy;
-    output.xy += WATER_TIME * 0.1h + noise; // small detail
-    output.zw += WATER_TIME * 0.05h + noise; // medium detail
+    output.xy += WATER_TIME * 0.2h + noise; // small detail
+    output.zw += WATER_TIME * 0.1h + noise; // medium detail
 	output.xy /= dist.x;
 	output.zw /= dist.y;
 	//output.xy = mul(output.xy, rotA);
@@ -174,13 +219,22 @@ float4 DetailUVs(float3 positionWS, half noise)
 
 void DetailNormals(inout float3 normalWS, float4 uvs, half4 waterFX, float depth, float fade)
 {
-    float2 detailBump1 = SAMPLE_TEXTURE2D(_SurfaceMap, sampler_SurfaceMap, uvs.zw).xy * 2 - 1;
-	float2 detailBump2 = SAMPLE_TEXTURE2D(_SurfaceMap, sampler_SurfaceMap, uvs.xy).xy * 2 - 1;
-	float2 detailBump = (detailBump1 * fade + detailBump2 * (1 - fade)) * saturate(depth * 0.25 + 0.25);
+    float2 detailBump1 = SAMPLE_TEXTURE2D(_SurfaceNormals, sampler_SurfaceNormals, uvs.zw).xy * 2 - 1;
+	float2 detailBump2 = SAMPLE_TEXTURE2D(_SurfaceNormals, sampler_SurfaceNormals, uvs.xy).zw * 2 - 1;
+	float2 detailBump = (detailBump1 * fade + detailBump2 * (1 - fade)) * saturate(depth * 0.2 + 0.25);
 
 	float3 normal1 = float3(detailBump.x, 0, detailBump.y) * _BoatAttack_Water_MicroWaveIntensity;
 	float3 normal2 = float3(1-waterFX.y, 0.5h, 1-waterFX.z) - 0.5;
-	normalWS = normalize(normalWS + normal1 + normal2);
+	normalWS = normalize(normalWS + normal1);// normalize(normalWS + normal1 + normal2);
+}
+
+void BlendLods(inout float3 positionWS, float3 positionOS, float2 uv)
+{
+	float blend = Remap(LodBlend(positionWS), float4(0.2, 0.8, 0, 1));
+	float2 minMax = float2(1, saturate(blend) + 1);
+	// Mesh LOD
+	positionOS *= Remap(float3(uv.x, 0, uv.y), float4(0, 1, minMax));
+	positionWS = TransformObjectToWorld(positionOS);
 }
 
 Varyings WaveVertexOperations(Varyings input)
@@ -191,7 +245,7 @@ Varyings WaveVertexOperations(Varyings input)
 	// Detail UVs
     input.uv = DetailUVs(input.positionWS, input.fogFactorNoise.y);
 
-	half4 screenUV = ComputeScreenPos(TransformWorldToHClip(input.positionWS));
+	half4 screenUV = GetVertexPositionInputs(TransformWorldToObject(input.positionWS)).positionNDC;
 	screenUV.xyz /= screenUV.w;
 
     // shallows mask
@@ -217,7 +271,7 @@ Varyings WaveVertexOperations(Varyings input)
 
 	// After waves
 	input.positionCS = TransformWorldToHClip(input.positionWS);
-	input.screenPosition = ComputeScreenPos(input.positionCS);
+	input.screenPosition = GetVertexPositionInputs(TransformWorldToObject(input.positionWS)).positionNDC;
     input.viewDirectionWS.xyz = SafeNormalize(_WorldSpaceCameraPos - input.positionWS);
 
     // Fog
@@ -238,7 +292,7 @@ void InitializeInputData(Varyings input, out WaterInputData inputData, float2 sc
 {
 	// bluenoise
 	float2 uv = screenUV * _DitherPattern_TexelSize.xy * _ScreenParams.xy;
-	inputData.screenNoise = SAMPLE_TEXTURE2D(_DitherPattern, sampler_DitherPattern, uv);
+	inputData.screenNoise = SAMPLE_TEXTURE2D(_DitherPattern, sampler_DitherPattern, uv).xyz;
 	
     float3 depth = WaterDepth(input.positionWS, input.additionalData, screenUV);// TODO - hardcoded shore depth UVs
     // Sample water FX texture
@@ -255,11 +309,11 @@ void InitializeInputData(Varyings input, out WaterInputData inputData, float2 sc
     
     inputData.viewDirectionWS = input.viewDirectionWS.xyz;
     
-    half2 distortion = DistortionUVs(depth.x, inputData.normalWS, input.viewDirectionWS.xyz);
-	distortion = screenUV.xy + distortion;// * clamp(depth.x, 0, 5);
+	inputData.depth.y = depth.x;
+	half4 distortion = DistortionUVs(screenUV.xy, depth.x, inputData.normalWS, input.viewDirectionWS.xyz, input.positionWS);;// * clamp(depth.x, 0, 5);
 	float d = depth.x;
-	depth.xz = AdjustedDepth(distortion, input.additionalData); // only x y
-	distortion = depth.x < 0 ? screenUV.xy : distortion;
+	depth.xz = AdjustedDepth(distortion.xy, input.additionalData); // only x y
+	distortion = depth.x < 0 ? screenUV.xyxy : distortion;
     inputData.refractionUV = distortion;
     depth.x = depth.x < 0 ? d : depth.x;
 
@@ -268,7 +322,7 @@ void InitializeInputData(Varyings input, out WaterInputData inputData, float2 sc
     inputData.shadowCoord = TransformWorldToShadowCoord(inputData.normalWS);
 
     inputData.fogCoord = input.fogFactorNoise.x;
-    inputData.depth = depth.x;
+    inputData.depth.x = depth.x;
     inputData.reflectionUV = 0;
     inputData.GI = 0;
 }
@@ -279,7 +333,7 @@ void InitializeSurfaceData(inout WaterInputData input, out WaterSurfaceData surf
 	surfaceData.scattering = 0;
 
 	// Foam
-	half depthEdge = saturate(input.depth * 0.5);
+	half depthEdge = saturate(input.depth.y * 0.5);
 	half foamShoreRamp = SAMPLE_TEXTURE2D(_BoatAttack_RampTexture, sampler_BoatAttack_Linear_Clamp_RampTexture,  1-depthEdge).r;
 	half foamWaveRamp = SAMPLE_TEXTURE2D(_BoatAttack_RampTexture, sampler_BoatAttack_Linear_Clamp_RampTexture,  additionalData.w).g;
 	
@@ -302,43 +356,42 @@ void InitializeSurfaceData(inout WaterInputData input, out WaterSurfaceData surf
 	surfaceData.foam = 1;//saturate(length(foamMap * foamBlend) * 1.5 - 0.1);
 }
 
-float3 WaterShading(WaterInputData input, WaterSurfaceData surfaceData, float4 additionalData, float2 screenUV)
+half3 WaterShading(WaterInputData input, WaterSurfaceData surfaceData, float4 additionalData, float2 screenUV)
 {
 	// extra inputs
-	half edgeFade = saturate(input.depth * 5);
+	half edgeFade = saturate(input.depth.y * 5);
 
 	// Fresnel
 	half fresnelTerm = CalculateFresnelTerm(input.normalWS, input.viewDirectionWS, distance(input.positionWS, GetCameraPositionWS()));
 	
     // Lighting
 	Light mainLight = GetMainLight(TransformWorldToShadowCoord(input.positionWS), input.positionWS, 1);
-    half volumeShadow = SoftShadows(screenUV, input.positionWS, input.viewDirectionWS, input.depth);
+    half volumeShadow = SoftShadows(screenUV, input.positionWS, input.viewDirectionWS, input.depth.x);
     half3 GI = SampleSH(input.normalWS);
 
     // SSS
-    half3 directLighting = dot(mainLight.direction, half3(0, 1, 0)) * mainLight.color;
-    directLighting += saturate(pow(dot(input.viewDirectionWS.xyz, -mainLight.direction) * additionalData.z, 3)) * mainLight.color * 5;
+    half3 directLighting = F_Schlick(0.2, dot(mainLight.direction, input.normalWS)) * mainLight.color;
+    directLighting += saturate(pow(dot(input.viewDirectionWS.xyz, -mainLight.direction) * additionalData.z, 3)) * Absorption(1) * mainLight.color * 2;
+	half3 sss = directLighting * volumeShadow + GI;
+	sss *= Scattering(input.depth.x);
 	
     BRDFData brdfData;
     half alpha = 1;
-    InitializeBRDFData(half3(0, 0, 0), 0, half3(1, 1, 1), 0.98, alpha, brdfData);
-	half3 spec = DirectBDRF(brdfData, input.normalWS, mainLight.direction, input.viewDirectionWS);
-	spec *= mainLight.color * mainLight.shadowAttenuation;
+	half smoothness = 0.95;// 1-saturate(fresnelTerm);
+    InitializeBRDFData(half3(0, 0, 0), 0, half3(1, 1, 1), smoothness, alpha, brdfData);
+	half3 spec = DirectBDRF(brdfData, input.normalWS, mainLight.direction, input.viewDirectionWS) * 10;
+	spec *= mainLight.color * mainLight.shadowAttenuation * length(input.normalWS.xz);
 	spec *= 1 - saturate(surfaceData.foamMask * 10);
 
 	// Foam
 	surfaceData.foam *= (GI + directLighting * mainLight.shadowAttenuation) * 3 * saturate(surfaceData.foamMask);
 	
-	// SSS
-    half3 sss = directLighting * volumeShadow + GI;
-    sss *= Scattering(input.depth);
-
 	// Reflections
 	half3 reflection = SampleReflections(input.normalWS, input.positionWS, input.viewDirectionWS, screenUV);
 	reflection *= edgeFade;
 
 	// Refraction
-	half3 refraction = Refraction(input.refractionUV, input.depth, edgeFade);
+	half3 refraction = Refraction(input.refractionUV, input.depth.x, edgeFade);
 
 	// Do compositing
 	half3 compA = lerp(refraction, reflection, fresnelTerm) + spec + sss;
@@ -381,6 +434,8 @@ float3 WaterShading(WaterInputData input, WaterSurfaceData surfaceData, float4 a
 			return half4(frac(wd), frac(wd * 0.1), 0, 1);
 		case 12: // fresnel
 			return fresnelTerm;
+		case 13: // mesh debug
+			return MeshDebugView(input.positionWS);
 	}
 	#endif
 	
@@ -392,7 +447,7 @@ half WaterNearFade(Varyings input, WaterInputData inputData)
 {
     float3 camPos = GetCameraPositionWS();
     camPos.y = 0;
-	half fade = saturate(inputData.depth * 20);
+	half fade = saturate(inputData.depth.y * 20);
 	half distanceFade = 1 - saturate((distance(input.positionWS, camPos) - _BoatAttack_Water_DistanceBlend) * 0.05);
     return min(fade, distanceFade);
 }
@@ -412,6 +467,8 @@ Varyings WaterVertex(Attributes v)
     o.uv.xy = v.texcoord; // geo uvs
     o.positionWS = TransformObjectToWorld(v.positionOS.xyz);
 
+	BlendLods(o.positionWS, v.positionOS.xyz, v.texcoord);
+	
 	o = WaveVertexOperations(o);
     return o;
 }
@@ -431,7 +488,7 @@ half4 WaterFragment(Varyings IN) : SV_Target
     half4 output;
     output.a = WaterNearFade(IN, inputData);
     output.rgb = WaterShading(inputData, surfaceData, IN.additionalData, screenUV);
-
+	
     return output;
 }
 

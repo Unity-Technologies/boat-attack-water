@@ -22,10 +22,6 @@ namespace WaterSystem
         public class OceanSettings
         {
             // General
-            public GeometryType waterGeomType; // The type of geometry, either vertex offset or tessellation
-            public ReflectionType refType = ReflectionType.PlanarReflection; // How the reflections are generated
-            public PlanarReflections.PlanarReflectionSettings planarSettings;
-            public SSRSettings SsrSettings = new SSRSettings();
             public bool isInfinite; // Is the water infinite (shader incomplete)
             public float distanceBlend = 100.0f;
             public int randomSeed = 3234;
@@ -45,31 +41,12 @@ namespace WaterSystem
             public AnimationCurve _waveFoamProfile = AnimationCurve.Linear(0.02f, 0f, 0.98f, 1f);
             public AnimationCurve _waveDepthProfile = AnimationCurve.Linear(0.0f, 1f, 0.98f, 0f);
             
-            
             // Micro(surface) Waves
             public float _microWaveIntensity = 0.25f;
             
             // Shore
-            public float _foamIntensity = 1.0f;
-            public AnimationCurve _shoreFoamProfile = AnimationCurve.Linear(0.02f, 1f, 0.98f, 0f);
-        }
-
-        [Serializable]
-        public class SSRSettings
-        {
-            public SSRSteps Steps = SSRSteps.Medium;
-            [Range(0.01f, 1f)]
-            public float StepSize = 0.1f;
-            [Range(0.25f, 3f)]
-            public float Thickness = 2f;
-        }
-
-        [Serializable]
-        public enum SSRSteps
-        {
-            Low = 8,
-            Medium = 16,
-            High = 32,
+            public float _foamIntensity = 0.5f;
+            public AnimationCurve _shoreFoamProfile = AnimationCurve.Linear(0.02f, 0f, 0.98f, 1f);
         }
         
         /// <summary>
@@ -117,42 +94,134 @@ namespace WaterSystem
         }
         
         /// <summary>
-        /// The type of reflection source, custom cubemap, closest refelction probe, planar reflection
-        /// </summary>
-        [Serializable]
-        public enum ReflectionType
-        {
-            Cubemap,
-            ReflectionProbe,
-            PlanarReflection,
-            ScreenSpaceReflection,
-        }
-
-        public static string GetReflectionKeyword(ReflectionType type)
-        {
-            switch (type)
-            {
-                case ReflectionType.Cubemap:
-                    return KeyRefCubemap;
-                case ReflectionType.ReflectionProbe:
-                    return KeyRefProbe;
-                case ReflectionType.PlanarReflection:
-                    return KeyRefPlanar;
-                case ReflectionType.ScreenSpaceReflection:
-                    return KeyRefSSR;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(type), type, null);
-            }
-        }
-        
-        /// <summary>
         /// The type of geometry, either vertex offset or tessellation
         /// </summary>
         [Serializable]
         public enum GeometryType
         {
             VertexOffset,
-            Tesselation
+            //Tesselation,
+        }
+
+        /// <summary>
+        /// Refleciton settings, this also contains a planar reflection copy
+        /// </summary>
+        [Serializable]
+        public class ReflectionSettings
+        {
+            public Type reflectionType = Type.PlanarReflection; // How the reflections are generated
+            public PlanarReflections.PlanarReflectionSettings planarSettings = new(); // Planar reflection settings
+
+            /// <summary>
+            /// The type of reflection source, custom cubemap, closest refelction probe, planar reflection
+            /// </summary>
+            [Serializable]
+            public enum Type
+            {
+                Cubemap,
+                ReflectionProbe,
+                PlanarReflection,
+                ScreenSpaceReflection,
+            }
+        }
+
+        /// <summary>
+        /// SSR Reflection quality settings
+        /// </summary>
+        [Serializable]
+        public class SsrSettings
+        {
+            public Steps steps = Steps.Medium;
+            [Range(0.01f, 1f)]
+            public float stepSize = 0.1f;
+            [Range(0.25f, 3f)]
+            public float thickness = 2f;
+		
+            [Serializable]
+            public enum Steps
+            {
+                Low = 8,
+                Medium = 16,
+                High = 32,
+            }
+        }
+
+        /// <summary>
+        /// Lighting Settings
+        /// </summary>
+        [Serializable]
+        public class LightingSettings
+        {
+            public LightingMode Mode = LightingMode.Basic;
+            public bool Soft = true;
+            public VolumeSample VolumeSamples = VolumeSample.Low;
+
+            [Serializable]
+            public enum LightingMode
+            {
+                Off,
+                Basic,
+                Volume,
+            }
+            
+            [Serializable]
+            public enum VolumeSample
+            {
+                Low = 4,
+                Medium = 8,
+                High = 16,
+            }
+        }
+
+        /// <summary>
+        /// Refraction Settings
+        /// </summary>
+        [Serializable]
+        public class RefractionSettings
+        {
+            public RefractionMode Mode = RefractionMode.Simple;
+            public bool Dispersion = false;
+		
+            public enum RefractionMode
+            {
+                Off,
+                Simple,
+                //Raymarch,
+            }
+        }
+
+        /// <summary>
+        /// Caustic Settings
+        /// </summary>
+        [Serializable]
+        public class CausticSettings
+        {
+            public CausticMode Mode = CausticMode.Simple;
+            public bool Dispersion = false;
+		
+            public enum CausticMode
+            {
+                Off,
+                Simple,
+                //Raymarch,
+            }
+        }
+        
+        public static string GetReflectionKeyword(ReflectionSettings.Type type)
+        {
+            switch (type)
+            {
+                case ReflectionSettings.Type.Cubemap:
+                    return KeyRefCubemap;
+                case ReflectionSettings.Type.ReflectionProbe:
+                    return KeyRefProbe;
+                case ReflectionSettings.Type.PlanarReflection:
+                    return KeyRefPlanar;
+                case ReflectionSettings.Type.ScreenSpaceReflection:
+                    return KeyRefSSR;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(type), type, null);
+            }
         }
     }
 }

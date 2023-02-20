@@ -1,5 +1,6 @@
 ﻿using System;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Mathematics;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -10,6 +11,7 @@ using UnityEngine.Rendering.Universal;
 using Object = UnityEngine.Object;
 using Random = UnityEngine.Random;
 using WaterSystem.Rendering;
+using WaterSystem.Settings;
 
 namespace WaterSystem
 {
@@ -17,6 +19,7 @@ namespace WaterSystem
     [AddComponentMenu("URP Water System/Ocean")]
     public class Ocean : MonoBehaviour
     {
+        private int lastQualityLevel = -1;
         // Singleton
         private static Ocean _instance;
         public static Ocean Instance
@@ -41,9 +44,11 @@ namespace WaterSystem
         private float _waveHeight;
 
         [SerializeReference] public Data.OceanSettings settingsData = new Data.OceanSettings();
-        [HideInInspector,SerializeField] private WaterResources resources;
 
         public DebugShading shadingDebug;
+
+        private MeshSurface mesh;
+        private MeshSurface.WaterMeshSettings meshSettings;
         
         // Render Passes
         private InfiniteWaterPass _infiniteWaterPass;
@@ -51,6 +56,7 @@ namespace WaterSystem
         private WaterCausticsPass _causticsPass;
         
         // RuntimeMaterials
+        private Material _waterMaterial;
         private Material _causticMaterial;
 
         // Runttime Resources
@@ -61,6 +67,7 @@ namespace WaterSystem
         private static readonly int InvViewProjection = Shader.PropertyToID("_InvViewProjection");
         private static readonly int FoamMap = Shader.PropertyToID("_FoamMap");
         private static readonly int SurfaceMap = Shader.PropertyToID("_SurfaceMap");
+        private static readonly int SurfaceNormals = Shader.PropertyToID("_SurfaceNormals");
         private static readonly int WaveHeight = Shader.PropertyToID("_WaveHeight");
         private static readonly int MaxWaveHeight = Shader.PropertyToID("_MaxWaveHeight");
         private static readonly int MaxDepth = Shader.PropertyToID("_MaxDepth");
@@ -78,6 +85,12 @@ namespace WaterSystem
         private static readonly int BoatAttackWaterFoamIntensity = Shader.PropertyToID("_BoatAttack_water_FoamIntensity");
         private static readonly int RampTexture = Shader.PropertyToID("_BoatAttack_RampTexture");
         
+        // Shader Keywords
+        private static GlobalKeyword _volShadowsLow;
+        private static GlobalKeyword _volShadowsMedium;
+        private static GlobalKeyword _volShadowsHigh;
+        private static GlobalKeyword _dispersion;
+        
         private void OnEnable()
         {
             if (_instance == null)
@@ -89,14 +102,6 @@ namespace WaterSystem
                 Debug.LogError("Multiple Ocean Components cannot exist in tandem");
                 //SafeDestroy(this);
             }
-            
-            #if UNITY_EDITOR
-            if(resources == null)
-            {
-                var data = AssetDatabase.LoadAssetAtPath<WaterResources>("Packages/com.unity.urp-water-system/Runtime/Data/WaterResources.asset");
-                resources = data;
-            }
-            #endif
             
             RenderPipelineManager.beginCameraRendering += BeginCameraRendering;
             if (!computeOverride)
@@ -119,10 +124,13 @@ namespace WaterSystem
                 _instance = null;
         }
 
-        void Cleanup()
+        public void Cleanup()
         {
+            CoreUtils.Destroy(_waterMaterial);
+            CoreUtils.Destroy(_causticMaterial);
             GerstnerWavesJobs.Cleanup();
             RenderPipelineManager.beginCameraRendering -= BeginCameraRendering;
+            mesh.Cleanup();
             waveBuffer?.Dispose();
         }
 
@@ -130,23 +138,23 @@ namespace WaterSystem
         {
             if (cam.cameraType == CameraType.Preview || _instance == null) return;
 
-            if (settingsData.refType == Data.ReflectionType.PlanarReflection)
+            if (WaterProjectSettings.QualitySettings.reflectionSettings.reflectionType == Data.ReflectionSettings.Type.PlanarReflection)
                 PlanarReflections.Execute(src, cam, _instance.transform);
+            
+            var urpData = cam.GetUniversalAdditionalCameraData();
 
-            if (_causticMaterial == null)
+            if (WaterProjectSettings.QualitySettings.causticSettings.Mode != Data.CausticSettings.CausticMode.Off)
             {
-                _causticMaterial = CoreUtils.CreateEngineMaterial(resources.causticShader);
-                _causticMaterial.SetTexture("_CausticMap", resources.defaultSurfaceMap);
+                DoCaustics(urpData.scriptableRenderer);
             }
 
-            _infiniteWaterPass ??= new InfiniteWaterPass(resources.defaultInfinitewWaterMesh, resources.infiniteWaterShader);
+            _infiniteWaterPass ??= new InfiniteWaterPass(WaterProjectSettings.Instance.resources.infiniteWaterMesh, WaterProjectSettings.Instance.resources.infiniteWaterShader);
             _waterBufferPass ??= new WaterFxPass();
-            _causticsPass ??= new WaterCausticsPass(_causticMaterial);
-
-            var urpData = cam.GetUniversalAdditionalCameraData();
+            
+            
             urpData.scriptableRenderer.EnqueuePass(_infiniteWaterPass);
             urpData.scriptableRenderer.EnqueuePass(_waterBufferPass);
-            urpData.scriptableRenderer.EnqueuePass(_causticsPass);
+            
             
             var roll = cam.transform.localEulerAngles.z;
             Shader.SetGlobalFloat(CameraRoll, roll);
@@ -163,32 +171,26 @@ namespace WaterSystem
             newPos.x = quantizeValue * (int) (newPos.x / quantizeValue);
             newPos.z = quantizeValue * (int) (newPos.z / quantizeValue);
 
-            var blendDist = (settingsData.distanceBlend + 10) / 100f;
-
-            var matrix = Matrix4x4.TRS(newPos, Quaternion.identity, Vector3.one * blendDist); // transform.localToWorldMatrix;
-
-            foreach (var mesh in resources.defaultWaterMeshes)
+            mesh.transformMatrix = transform.localToWorldMatrix;
+            
+            if (_waterMaterial == null)
             {
-                Graphics.DrawMesh(mesh,
-                    matrix,
-                    resources.defaultSeaMaterial,
-                    gameObject.layer,
-                    cam,
-                    0,
-                    null,
-                    ShadowCastingMode.Off,
-                    true,
-                    null,
-                    LightProbeUsage.Off);
+                _waterMaterial = CoreUtils.CreateEngineMaterial(WaterProjectSettings.Instance.resources.waterShader);
+                _waterMaterial.enableInstancing = true;
             }
+            
+            mesh.GenerateSurface(ref meshSettings, ref cam, ref _waterMaterial, gameObject.layer);
         }
 
-        private static void SafeDestroy(Object o)
+        private void DoCaustics(ScriptableRenderer renderer)
         {
-            if(Application.isPlaying)
-                Destroy(o);
-            else
-                DestroyImmediate(o);
+            if (_causticMaterial == null)
+            {
+                _causticMaterial = CoreUtils.CreateEngineMaterial(WaterProjectSettings.Instance.resources.causticShader);
+                _causticMaterial.SetTexture("_CausticMap", WaterProjectSettings.Instance.resources.surfaceMap);
+            }
+            _causticsPass ??= new WaterCausticsPass(_causticMaterial);
+            renderer.EnqueuePass(_causticsPass);
         }
 
         [ContextMenu("Init")]
@@ -197,15 +199,24 @@ namespace WaterSystem
             GenerateColorRamp();
             SetWaves();
 
+            mesh?.Cleanup();
+            mesh = new MeshSurface();
+            meshSettings = MeshSurface.NewMeshSettings();
+            
+            meshSettings.infinite = true;
+            meshSettings.maxDivisions = 5;
+            meshSettings.baseTileSize = 20;
+            meshSettings.density = 0.15f;
+            meshSettings.size = new float2(250, 0);
+            meshSettings.maxWaveHeight = _maxWaveHeight;
+
             PlanarReflections.m_planeOffset = transform.position.y;
-            PlanarReflections.m_settings = settingsData.planarSettings;
-            PlanarReflections.m_settings.m_ClipPlaneOffset = 0;//transform.position.y;
-
-            if(resources == null)
-            {
-                resources = Resources.Load("WaterResources") as WaterResources;
-            }
-
+            
+            _volShadowsLow = GlobalKeyword.Create("_SHADOW_SAMPLES_LOW");
+            _volShadowsMedium = GlobalKeyword.Create("_SHADOW_SAMPLES_MEDIUM");
+            _volShadowsHigh = GlobalKeyword.Create("_SHADOW_SAMPLES_HIGH");
+            _dispersion = GlobalKeyword.Create("_DISPERSION");
+            
             SetDebugMode(shadingDebug);
             
             //CPU side
@@ -216,6 +227,12 @@ namespace WaterSystem
         private void LateUpdate()
         {
             GerstnerWavesJobs.UpdateHeights();
+            // remove with callback
+            if (QualitySettings.GetQualityLevel() != lastQualityLevel)
+            {
+                Init();
+                lastQualityLevel = QualitySettings.GetQualityLevel();
+            }
         }
 
         public static void SetDebugMode(DebugShading mode)
@@ -245,10 +262,10 @@ namespace WaterSystem
             SetupWaves(settingsData._customWaves);
 
             // set default resources
-            Shader.SetGlobalTexture(FoamMap, resources.defaultFoamMap);
-            Shader.SetGlobalTexture(SurfaceMap, resources.defaultSurfaceMap);
-            Shader.SetGlobalTexture(WaterFXShaderTag, resources.defaultWaterFX);
-            Shader.SetGlobalTexture(DitherTexture, resources.ditherNoise);
+            Shader.SetGlobalTexture(FoamMap, WaterProjectSettings.Instance.resources.foamMap);
+            Shader.SetGlobalTexture(SurfaceNormals, WaterProjectSettings.Instance.resources.detailNormalMap);
+            Shader.SetGlobalTexture(WaterFXShaderTag, WaterProjectSettings.Instance.resources.waterFX);
+            Shader.SetGlobalTexture(DitherTexture, WaterProjectSettings.Instance.resources.ditherNoise);
 
             _maxWaveHeight = 0f;
             foreach (var w in waves)
@@ -269,41 +286,41 @@ namespace WaterSystem
             Shader.SetGlobalFloat(BoatAttackWaterDistanceBlend, settingsData.distanceBlend);
             Shader.SetGlobalFloat(BoatAttackWaterFoamIntensity, settingsData._foamIntensity);
             
-            foreach (Data.ReflectionType reflect in Enum.GetValues(typeof(Data.ReflectionType)))
+            foreach (Data.ReflectionSettings.Type reflect in Enum.GetValues(typeof(Data.ReflectionSettings.Type)))
             {
-                if(settingsData.refType == reflect)
+                if(WaterProjectSettings.QualitySettings.reflectionSettings.reflectionType == reflect)
                     Shader.EnableKeyword(Data.GetReflectionKeyword(reflect));
                 else
                     Shader.DisableKeyword(Data.GetReflectionKeyword(reflect));
             }
             
-            switch(settingsData.refType)
+            switch(WaterProjectSettings.QualitySettings.reflectionSettings.reflectionType)
             {
-                case Data.ReflectionType.Cubemap:
+                case Data.ReflectionSettings.Type.Cubemap:
                     Shader.SetGlobalTexture(CubemapTexture, settingsData.cubemapRefType);
                     break;
-                case Data.ReflectionType.ScreenSpaceReflection:
+                case Data.ReflectionSettings.Type.ScreenSpaceReflection:
                     Shader.SetGlobalTexture(CubemapTexture,
                         settingsData.cubemapRefType == null
                             ? ReflectionProbe.defaultTexture
                             : settingsData.cubemapRefType);
-                    Vector3 settings = new Vector3(settingsData.SsrSettings.StepSize, 
-                        settingsData.SsrSettings.Thickness, 
+                    Vector3 settings = new Vector3(WaterProjectSettings.QualitySettings.ssrSettings.stepSize, 
+                        WaterProjectSettings.QualitySettings.ssrSettings.thickness, 
                         0);
                     Shader.SetGlobalVector("_SSR_Settings", settings);
-                    switch (settingsData.SsrSettings.Steps)
+                    switch (WaterProjectSettings.QualitySettings.ssrSettings.steps)
                     {
-                        case Data.SSRSteps.Low:
+                        case Data.SsrSettings.Steps.Low:
                             Shader.EnableKeyword("_SSR_SAMPLES_LOW");
                             Shader.DisableKeyword("_SSR_SAMPLES_MEDIUM");
                             Shader.DisableKeyword("_SSR_SAMPLES_HIGH");
                             break;
-                        case Data.SSRSteps.Medium:
+                        case Data.SsrSettings.Steps.Medium:
                             Shader.EnableKeyword("_SSR_SAMPLES_MEDIUM");
                             Shader.DisableKeyword("_SSR_SAMPLES_LOW");
                             Shader.DisableKeyword("_SSR_SAMPLES_HIGH");
                             break;
-                        case Data.SSRSteps.High:
+                        case Data.SsrSettings.Steps.High:
                             Shader.EnableKeyword("_SSR_SAMPLES_HIGH");
                             Shader.DisableKeyword("_SSR_SAMPLES_LOW");
                             Shader.DisableKeyword("_SSR_SAMPLES_MEDIUM");
@@ -311,7 +328,26 @@ namespace WaterSystem
                     }
                     break;
             }
+            
+            
+            var volumeShadows = WaterProjectSettings.QualitySettings.lightingSettings.Mode == Data.LightingSettings.LightingMode.Volume;
+            if (volumeShadows)
+            {
+                var volumeShadowsQuality = WaterProjectSettings.QualitySettings.lightingSettings.VolumeSamples;
+                Shader.SetKeyword(_volShadowsLow, volumeShadowsQuality == Data.LightingSettings.VolumeSample.Low);
+                Shader.SetKeyword(_volShadowsMedium, volumeShadowsQuality == Data.LightingSettings.VolumeSample.Medium);
+                Shader.SetKeyword(_volShadowsHigh, volumeShadowsQuality == Data.LightingSettings.VolumeSample.High);
+            }
+            else
+            {
+                Shader.DisableKeyword(_volShadowsLow);
+                Shader.DisableKeyword(_volShadowsMedium);
+                Shader.DisableKeyword(_volShadowsHigh);
+            }
 
+            var dispersion = WaterProjectSettings.QualitySettings.causticSettings.Dispersion;
+            Shader.SetKeyword(_dispersion, dispersion);
+            
             Shader.SetGlobalInt(WaveCount, waves.Length);
 
             //GPU side
@@ -429,6 +465,7 @@ namespace WaterSystem
             Depth,
             WaterDepth,
             Fresnel,
+            Mesh,
         }
     }
 }

@@ -12,9 +12,10 @@ half _BoatAttack_water_FoamIntensity;
 half _WaveHeight;
 half _MaxDepth;
 half _MaxWaveHeight;
-half4 _VeraslWater_DepthCamParams;
+half4 _BoatAttack_Water_DepthCamParams;
 float4x4 _InvViewProjection;
 half3 _SSR_Settings;
+half _CameraFov;
 
 #define SSR_STEP_SIZE _SSR_Settings.x
 #define SSR_THICKNESS _SSR_Settings.y
@@ -34,7 +35,7 @@ TEXTURE2D(_CameraDepthTexture);
 TEXTURE2D(_CameraOpaqueTexture); SAMPLER(sampler_ScreenTextures_linear_clamp);
 
 // Surface textures
-TEXTURE2D(_SurfaceMap); SAMPLER(sampler_SurfaceMap);
+TEXTURE2D(_SurfaceNormals); SAMPLER(sampler_SurfaceNormals);
 TEXTURE2D(_FoamMap); SAMPLER(sampler_FoamMap);
 TEXTURE2D(_DitherPattern); SAMPLER(sampler_DitherPattern); half4 _DitherPattern_TexelSize;
 
@@ -92,13 +93,13 @@ struct WaterInputData
     float3 normalWS;
     float3 viewDirectionWS;
     float2 reflectionUV;
-    float2 refractionUV;
+    float4 refractionUV;
     float4 detailUV;
     float4 shadowCoord;
     half4 waterBufferA;
     half4 waterBufferB;
     half fogCoord;
-    float depth;
+    float2 depth; // x = distorted depth, y = raw depth
     half3 GI;
 	half3 screenNoise;
 };

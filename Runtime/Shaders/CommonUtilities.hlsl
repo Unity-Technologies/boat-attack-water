@@ -1,10 +1,22 @@
 ﻿#ifndef COMMON_UTILITIES_INCLUDED
 #define COMMON_UTILITIES_INCLUDED
 
+#define GetObjectScale GetObjectToWorldMatrix()._m32
+#define GetMeshDensity GetObjectToWorldMatrix()._m31
+#define GetMeshDivision GetObjectToWorldMatrix()._m30
+
 // remaps a value based on a in:min/max and out:min/max
 // value		=		value to be remapped
 // remap		=		x = min in, y = max in, z = min out, w = max out
-float Remap(half value, half4 remap)
+float Remap(float value, float4 remap)
+{
+	return remap.z + (value - remap.x) * (remap.w - remap.z) / (remap.y - remap.x);
+}
+
+// remaps a value based on a in:min/max and out:min/max
+// value		=		value to be remapped
+// remap		=		x = min in, y = max in, z = min out, w = max out
+float3 Remap(float3 value, float4 remap)
 {
 	return remap.z + (value - remap.x) * (remap.w - remap.z) / (remap.y - remap.x);
 }

@@ -3,7 +3,19 @@
 
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 
-#define SHADOW_ITERATIONS 4
+#ifdef _SHADOW_SAMPLES_LOW
+    #define SHADOW_ITERATIONS 1
+    #define SHADOW_VOLUME
+#elif _SHADOW_SAMPLES_MEDIUM
+    #define SHADOW_ITERATIONS 2
+    #define SHADOW_VOLUME
+#elif _SHADOW_SAMPLES_HIGH
+    #define SHADOW_ITERATIONS 4
+    #define SHADOW_VOLUME
+#else
+    #define SHADOW_ITERATIONS 0
+#endif
+
 
 #ifdef _SSR_SAMPLES_LOW
     #define SSR_ITERATIONS 8
@@ -62,30 +74,37 @@ half3 Highlights(half3 positionWS, half roughness, half3 normalWS, half3 viewDir
 half SoftShadows(float2 screenUV, float3 positionWS, half3 viewDir, half depth)
 {
 #ifdef MAIN_LIGHT_CALCULATE_SHADOWS
-    half2 jitterUV = screenUV * _ScreenParams.xy * _DitherPattern_TexelSize.xy;
-    half shadowBase = SAMPLE_TEXTURE2D_SHADOW(_MainLightShadowmapTexture, sampler_MainLightShadowmapTexture, TransformWorldToShadowCoord(positionWS));
-	half shadowAttenuation = 1 - (1-shadowBase) * 0.5;
+    float2 jitterUV = screenUV * _DitherPattern_TexelSize.xy;
+    half shadowBase = MainLightRealtimeShadow(TransformWorldToShadowCoord(positionWS)) * length(SampleMainLightCookie(positionWS));
+	half shadowAttenuation = shadowBase;
 
+#ifdef SHADOW_VOLUME
 	float loopDiv = rcp(SHADOW_ITERATIONS);
+	float loopDivPlusOne = rcp(SHADOW_ITERATIONS + 1);
 	half depthFrac = depth * loopDiv;
-	half3 lightOffset = -viewDir;// * depthFrac;
+	half3 lightOffset = -viewDir * loopDiv * _MaxDepth;
 	for (uint i = 0u; i < SHADOW_ITERATIONS; ++i)
     {
 #ifndef _STATIC_SHADER
-        jitterUV += frac(half2(_Time.x, -_Time.z));
+        jitterUV += frac(float2(_Time.x, -_Time.z) + i * 0.09);
 #endif
-        float3 jitterTexture = SAMPLE_TEXTURE2D(_DitherPattern, sampler_DitherPattern, jitterUV + i * _ScreenParams.xy).xyz * 2 - 1;
-	    half3 j = jitterTexture.xzy * i * 0.1;
-	    float3 lightJitter = (positionWS + j) + (lightOffset * (i + jitterTexture.y));
-	    half shadow = SAMPLE_TEXTURE2D_SHADOW(_MainLightShadowmapTexture, sampler_MainLightShadowmapTexture, TransformWorldToShadowCoord(lightJitter));
-	    shadowAttenuation *= 1 - ((1-shadow) * 0.5 * (i * loopDiv));
+        float3 jitterTexture = SAMPLE_TEXTURE2D(_DitherPattern, sampler_DitherPattern, jitterUV * _ScreenParams.xy).xyz * 2 - 1;
+	    //half3 spread = jitterTexture.xzy * i * loopDiv * _MaxDepth;
+	    float3 lightJitter = positionWS + (lightOffset * (i + (_MaxDepth * loopDiv * 0.5) + jitterTexture.y));
+	    half3 spread = jitterTexture.xzy * distance(lightJitter, positionWS) * 0.1;
+	    lightJitter += spread;
+	    half shadow = SAMPLE_TEXTURE2D_SHADOW(_MainLightShadowmapTexture, sampler_MainLightShadowmapTexture, TransformWorldToShadowCoord(lightJitter)) * length(SampleMainLightCookie(lightJitter));
+	    float dist = distance(positionWS, lightJitter);
+	    shadow = dist > depth ? 1 : shadow;
+	    shadowAttenuation += shadow;
 	}
-    shadowAttenuation = BEYOND_SHADOW_FAR(TransformWorldToShadowCoord(positionWS)) ? 1.0 : shadowAttenuation;
+    shadowAttenuation *= loopDivPlusOne;
+#endif
+    
+    //half fade = GetShadowFade(positionWS);
+    half fade = GetMainLightShadowFade(positionWS);
 
-    half fade = GetShadowFade(positionWS);
-    //half fade = GetMainLightShadowFade(positionWS);
-
-    return lerp(shadowAttenuation, 1, fade) * length(SampleMainLightCookie(positionWS));
+    return lerp(shadowAttenuation, length(SampleMainLightCookie(positionWS)), fade);
 #else
     return 1;
 #endif

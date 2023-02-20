@@ -26,7 +26,6 @@ namespace WaterSystem
             public static GUIContent waveFoamProfile     = new GUIContent("Profile");
             public static GUIContent waveDepthProfile     = new GUIContent("Depth Multiplier");
             // Reflection
-            public static GUIContent refType                = new GUIContent("Mode");
             public static GUIContent cubemap                = new GUIContent("Cubemap");
             // Shore
             public static GUIContent foamIntensity          = new GUIContent("Foam Amount");
@@ -50,12 +49,7 @@ namespace WaterSystem
         
         private SerializedProperty waveDepthProfile;
         // reflection
-        private SerializedProperty refelctionType;
-
         private SerializedProperty cubemap;
-        
-        private SerializedProperty planarSettings;
-        private SerializedProperty ssrSettings;
         // flow
         // shore
         private SerializedProperty foamIntensity;
@@ -96,10 +90,7 @@ namespace WaterSystem
             
             waveDepthProfile = settings.FindPropertyRelative(nameof(Data.OceanSettings._waveDepthProfile));
             // Reflection Settings
-            refelctionType = settings.FindPropertyRelative(nameof(Data.OceanSettings.refType));
             cubemap = settings.FindPropertyRelative(nameof(Data.OceanSettings.cubemapRefType));
-            planarSettings = settings.FindPropertyRelative(nameof(Data.OceanSettings.planarSettings));
-            ssrSettings = settings.FindPropertyRelative(nameof(Data.OceanSettings.SsrSettings));
 
             // Shore
             foamIntensity = settings.FindPropertyRelative(nameof(Data.OceanSettings._foamIntensity));
@@ -174,29 +165,7 @@ namespace WaterSystem
 
         void DoReflection()
         {
-            EditorGUILayout.PropertyField(refelctionType, Styles.refType);
-            EditorGUI.indentLevel++;
-            switch ((Data.ReflectionType)refelctionType.enumValueIndex)
-            {
-                case Data.ReflectionType.Cubemap:
-                    EditorGUILayout.PropertyField(cubemap, Styles.cubemap);
-                    break;
-                case Data.ReflectionType.ReflectionProbe:
-                    EditorGUILayout.HelpBox("Currently there are no settings for this mode.", MessageType.Info);
-                    break;
-                case Data.ReflectionType.PlanarReflection:
-                    EditorGUILayout.PropertyField(planarSettings);
-                    break;
-                case Data.ReflectionType.ScreenSpaceReflection:
-                    EditorGUILayout.PropertyField(ssrSettings);
-                    EditorGUILayout.LabelField("Fallback Cubemap", EditorStyles.boldLabel);
-                    EditorGUILayout.PropertyField(cubemap, Styles.cubemap);
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
-
-            EditorGUI.indentLevel--;
+            EditorGUILayout.PropertyField(cubemap, Styles.cubemap);
         }
 
         void DoFlow()
