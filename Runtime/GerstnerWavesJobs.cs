@@ -78,7 +78,9 @@ namespace WaterSystem
             _waterHeightHandle.Complete();
             
             DepthGenerator.CleanUp();
-            
+
+            Registry.Clear();
+
             //Cleanup native arrays
             _waveData.Dispose();
             _positions.Dispose();

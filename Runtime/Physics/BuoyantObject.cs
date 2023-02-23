@@ -48,6 +48,9 @@ namespace WaterSystem.Physics
         private DebugDrawing[] _debugInfo; // For drawing force gizmos
         [NonSerialized] public float PercentSubmerged;
 
+        private bool IsPhysicsBased => _buoyancyType == BuoyancyType.Physical || _buoyancyType == BuoyancyType.PhysicalVoxel;
+        private bool IsVoxelBased => _buoyancyType == BuoyancyType.NonPhysicalVoxel || _buoyancyType == BuoyancyType.PhysicalVoxel;
+
         [ContextMenu("Initialize")]
         private void Init()
         {
@@ -82,7 +85,7 @@ namespace WaterSystem.Physics
 
         private void SetupVoxels()
         {
-            if (_buoyancyType == BuoyancyType.NonPhysicalVoxel || _buoyancyType == BuoyancyType.PhysicalVoxel)
+            if (IsVoxelBased)
             {
                 SliceIntoVoxels();
             }
@@ -106,6 +109,8 @@ namespace WaterSystem.Physics
             _guid = gameObject.GetInstanceID();
             Init();
             LocalToWorldConversion();
+
+            StartCoroutine(LateFixedUpdate());
         }
 
         private void SetupColliders()
@@ -121,34 +126,30 @@ namespace WaterSystem.Physics
 
         private void Update()
         {
+            if (IsPhysicsBased)
+                return;
+
 #if STATIC_EVERYTHING
             var dt = 0.0f;
 #else
             var dt = Time.deltaTime;
 #endif
+
             switch (_buoyancyType)
             {
                 case BuoyancyType.NonPhysical:
-                {
-                    _samplePoints[0] = transform.position;
-                    var t = transform;
-                    var vec  = t.position;
-                    vec.y = Heights[0].y + waterLevelOffset;
-                    t.position = vec;
-                    var up = t.up;
-                    t.up = Vector3.Slerp(up, _normals[0], dt);
-                    break;
-                }
+                    {
+                        _samplePoints[0] = transform.position;
+                        var t = transform;
+                        var vec  = t.position;
+                        vec.y = Heights[0].y + waterLevelOffset;
+                        t.position = vec;
+                        var up = t.up;
+                        t.up = Vector3.Slerp(up, _normals[0], dt);
+                        break;
+                    }
                 case BuoyancyType.NonPhysicalVoxel:
                     // do the voxel non-physical
-                    break;
-                case BuoyancyType.Physical:
-                    LocalToWorldJob.CompleteJob(_guid);
-                    GetVelocityPoints();
-                    break;
-                case BuoyancyType.PhysicalVoxel:
-                    LocalToWorldJob.CompleteJob(_guid);
-                    GetVelocityPoints();
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
@@ -160,38 +161,51 @@ namespace WaterSystem.Physics
 
         private void FixedUpdate()
         {
+            if (!IsPhysicsBased)
+                return;
+
             var submergedAmount = 0f;
-            
+
+            LocalToWorldJob.CompleteJob(_guid);
+            GetVelocityPoints();
+            GerstnerWavesJobs.UpdateSamplePoints(ref _samplePoints, _guid);
+            GerstnerWavesJobs.GetData(_guid, ref Heights, ref _normals);
+
             switch (_buoyancyType)
             {
                 case BuoyancyType.PhysicalVoxel:
-                {
-                    LocalToWorldJob.CompleteJob(_guid);
-                    //Debug.Log("new pass: " + gameObject.name);
-                    UnityPhysics.autoSyncTransforms = false;
+                    {
+                        var autoSyncTransforms = UnityPhysics.autoSyncTransforms;
+                        UnityPhysics.autoSyncTransforms = false;
 
-                    for (var i = 0; i < _voxels.Length; i++)
-                        BuoyancyForce(_samplePoints[i], _velocity[i], Heights[i].y + waterLevelOffset, ref submergedAmount, ref _debugInfo[i]);
-                    UnityPhysics.SyncTransforms();
-                    UnityPhysics.autoSyncTransforms = true;
-                    UpdateDrag(submergedAmount);
-                    break;
-                }
+                        for (var i = 0; i < _voxels.Length; i++)
+                            BuoyancyForce(_samplePoints[i], _velocity[i], Heights[i].y + waterLevelOffset, ref submergedAmount, ref _debugInfo[i]);
+
+                        UnityPhysics.SyncTransforms();
+                        UnityPhysics.autoSyncTransforms = autoSyncTransforms;
+
+                        UpdateDrag(submergedAmount);
+                        break;
+                    }
                 case BuoyancyType.Physical:
-                    //LocalToWorldJob.CompleteJob(_guid);
                     BuoyancyForce(Vector3.zero, _velocity[0], Heights[0].y + waterLevelOffset, ref submergedAmount, ref _debugInfo[0]);
                     //UpdateDrag(submergedAmount);
-                    break;
-                case BuoyancyType.NonPhysical:
-                    break;
-                case BuoyancyType.NonPhysicalVoxel:
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
             }
         }
 
-        private void LateUpdate() { LocalToWorldConversion(); }
+        private static readonly WaitForFixedUpdate YieldLateFixedUpdate = new WaitForFixedUpdate();
+        private System.Collections.IEnumerator LateFixedUpdate()
+        {
+            while (true)
+            {
+                yield return YieldLateFixedUpdate;
+
+                LocalToWorldConversion();
+            }
+        }
         
         private void OnDestroy()
         {
@@ -200,7 +214,9 @@ namespace WaterSystem.Physics
 
         void CleanUp()
         {
-            if (_buoyancyType == BuoyancyType.Physical || _buoyancyType == BuoyancyType.PhysicalVoxel)
+            StopAllCoroutines();
+
+            if (IsPhysicsBased)
             {
                 LocalToWorldJob.Cleanup(_guid);
             }
@@ -212,7 +228,7 @@ namespace WaterSystem.Physics
 
         private void LocalToWorldConversion()
         {
-            if (_buoyancyType != BuoyancyType.Physical && _buoyancyType != BuoyancyType.PhysicalVoxel) return;
+            if (!IsPhysicsBased) return;
             
             var transformMatrix = transform.localToWorldMatrix;
             LocalToWorldJob.ScheduleJob(_guid, transformMatrix);
@@ -258,6 +274,7 @@ namespace WaterSystem.Physics
             var size = t.localScale;
             t.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
             t.localScale = Vector3.one;
+            UnityPhysics.SyncTransforms();
 
             _voxels = null;
             var points = new List<Vector3>();
@@ -294,6 +311,8 @@ namespace WaterSystem.Physics
             _voxels = points.ToArray();
 			t.SetPositionAndRotation(pos, rot);
             t.localScale = size;
+            UnityPhysics.SyncTransforms();
+
             var voxelVolume = Mathf.Pow(voxelResolution, 3f) * _voxels.Length;
             var rawVolume = rawBounds.size.x * rawBounds.size.y * rawBounds.size.z;
             volume = Mathf.Min(rawVolume, voxelVolume);
@@ -387,7 +406,7 @@ namespace WaterSystem.Physics
                     water.y = debug.WaterHeight;
                     Gizmos.DrawLine(debug.Position, water); // draw the water line
                     Gizmos.DrawSphere(water, gizmoSize * 4f);
-                    if(_buoyancyType == BuoyancyType.Physical || _buoyancyType == BuoyancyType.PhysicalVoxel)
+                    if(IsPhysicsBased)
                     {
                         Gizmos.color = Color.red;
                         Gizmos.DrawRay(debug.Position, debug.Force / _rb.mass); // draw force
