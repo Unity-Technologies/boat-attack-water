@@ -8,18 +8,14 @@ namespace WaterSystem.Rendering
 
     public class WaterFxPass : ScriptableRenderPass
     {
-        private static int m_BufferATexture = Shader.PropertyToID("_WaterBufferA");
-        private static int m_BufferBTexture = Shader.PropertyToID("_WaterBufferB");
+        private static string m_BufferATexture = "_WaterBufferA";
+        private static string m_BufferBTexture = "_WaterBufferB";
 
         private static int
             m_MockDepthTexture = Shader.PropertyToID("_DepthBufferMock"); // TODO remove once bug is fixed
 
-        private RenderTargetIdentifier m_BufferTargetA = new RenderTargetIdentifier(m_BufferATexture);
-        private RenderTargetIdentifier m_BufferTargetB = new RenderTargetIdentifier(m_BufferBTexture);
-
-        private RenderTargetIdentifier
-            m_BufferDepth = new RenderTargetIdentifier(m_MockDepthTexture); // TODO also remove
-
+        private RTHandle m_BufferTargetA;
+        private RTHandle m_BufferTargetB;
 
         private const string k_RenderWaterFXTag = "Render Water FX";
         private ProfilingSampler m_WaterFX_Profile = new ProfilingSampler(k_RenderWaterFXTag);
@@ -30,11 +26,9 @@ namespace WaterSystem.Rendering
                 new Color(0.0f, 0.5f, 0.5f, 0.5f); //r = foam mask, g = normal.x, b = normal.z, a = displacement
 
         private FilteringSettings m_FilteringSettings;
-        private RenderTargetHandle m_WaterFX = RenderTargetHandle.CameraTarget;
 
         public WaterFxPass()
         {
-            m_WaterFX.Init("_WaterFXMap");
             // only wanting to render transparent objects
             m_FilteringSettings = new FilteringSettings(RenderQueueRange.transparent);
             renderPassEvent = RenderPassEvent.AfterRenderingPrePasses;
@@ -59,12 +53,17 @@ namespace WaterSystem.Rendering
             };
 
             // get a temp RT for rendering into
-            cmd.GetTemporaryRT(m_BufferATexture, rtd, FilterMode.Bilinear);
-            cmd.GetTemporaryRT(m_BufferBTexture, rtd, FilterMode.Bilinear);
-            cmd.GetTemporaryRT(m_MockDepthTexture, rtd, FilterMode.Point);
+            //cmd.GetTemporaryRT(m_BufferATexture, rtd, FilterMode.Bilinear);
+            //m_BufferTargetA = RTHandles.Alloc(Vector2.one, rtd, FilterMode.Bilinear, name:m_BufferATexture);
+            RenderingUtils.ReAllocateIfNeeded(ref m_BufferTargetA, rtd, FilterMode.Bilinear, name:m_BufferATexture);
+            //cmd.GetTemporaryRT(m_BufferBTexture, rtd, FilterMode.Bilinear);
+            //m_BufferTargetB = RTHandles.Alloc(Vector2.one, rtd, FilterMode.Bilinear, name:m_BufferBTexture);
+            RenderingUtils.ReAllocateIfNeeded(ref m_BufferTargetB, rtd, FilterMode.Bilinear, name:m_BufferBTexture);
 
-            RenderTargetIdentifier[] multiTargets = { m_BufferTargetA, m_BufferTargetB };
-            ConfigureTarget(multiTargets, m_MockDepthTexture);
+
+            //RenderTargetIdentifier[] multiTargets = { m_BufferTargetA, m_BufferTargetB };
+            RTHandle[] multiTargets = { m_BufferTargetA, m_BufferTargetB };
+            ConfigureTarget(multiTargets);
             // clear the screen with a specific color for the packed data
             ConfigureClear(ClearFlag.Color, m_ClearColor);
 
@@ -90,17 +89,12 @@ namespace WaterSystem.Rendering
                 // draw all the renderers matching the rules we setup
                 context.DrawRenderers(renderingData.cullResults, ref drawSettings, ref m_FilteringSettings);
             }
+            
+            cmd.SetGlobalTexture(m_BufferTargetA.name, m_BufferTargetA.nameID);
+            cmd.SetGlobalTexture(m_BufferTargetB.name, m_BufferTargetB.nameID);
 
             context.ExecuteCommandBuffer(cmd);
             CommandBufferPool.Release(cmd);
-        }
-
-        public override void OnCameraCleanup(CommandBuffer cmd)
-        {
-            // since the texture is used within the single cameras use we need to cleanup the RT afterwards
-            cmd.ReleaseTemporaryRT(m_BufferATexture);
-            cmd.ReleaseTemporaryRT(m_BufferBTexture);
-            cmd.ReleaseTemporaryRT(m_MockDepthTexture);
         }
     }
 

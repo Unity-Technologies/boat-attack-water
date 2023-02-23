@@ -17,10 +17,10 @@
 #define DEPTH_MULTIPLIER 1 / _MaxDepth
 
 #if UNITY_UV_STARTS_AT_TOP
-#define WaterBufferA(uv) SAMPLE_TEXTURE2D(_WaterBufferA, sampler_ScreenTextures_linear_clamp, half2(uv.x, 1-uv.y))
-#define WaterBufferAVert(uv) SAMPLE_TEXTURE2D_LOD(_WaterBufferA, sampler_ScreenTextures_linear_clamp, half2(uv.x, 1-uv.y), 0)
-#define WaterBufferB(uv) SAMPLE_TEXTURE2D(_WaterBufferB, sampler_ScreenTextures_linear_clamp, half2(uv.x, 1-uv.y))
-#define WaterBufferBVert(uv) SAMPLE_TEXTURE2D_LOD(_WaterBufferB, sampler_ScreenTextures_linear_clamp, half2(uv.x, 1-uv.y), 0)
+#define WaterBufferA(uv) SAMPLE_TEXTURE2D(_WaterBufferA, sampler_ScreenTextures_linear_clamp, half2(uv.x, uv.y))
+#define WaterBufferAVert(uv) SAMPLE_TEXTURE2D_LOD(_WaterBufferA, sampler_ScreenTextures_linear_clamp, half2(uv.x, uv.y), 0)
+#define WaterBufferB(uv) SAMPLE_TEXTURE2D(_WaterBufferB, sampler_ScreenTextures_linear_clamp, half2(uv.x, uv.y))
+#define WaterBufferBVert(uv) SAMPLE_TEXTURE2D_LOD(_WaterBufferB, sampler_ScreenTextures_linear_clamp, half2(uv.x, uv.y), 0)
 #else
 #define WaterBufferA(uv) SAMPLE_TEXTURE2D(_WaterBufferA, sampler_ScreenTextures_linear_clamp, uv)
 #define WaterBufferAVert(uv) SAMPLE_TEXTURE2D_LOD(_WaterBufferA, sampler_ScreenTextures_linear_clamp, uv, 0)
@@ -379,7 +379,7 @@ half3 WaterShading(WaterInputData input, WaterSurfaceData surfaceData, float4 ad
     half alpha = 1;
 	half smoothness = 0.95;// 1-saturate(fresnelTerm);
     InitializeBRDFData(half3(0, 0, 0), 0, half3(1, 1, 1), smoothness, alpha, brdfData);
-	half3 spec = DirectBDRF(brdfData, input.normalWS, mainLight.direction, input.viewDirectionWS) * 10;
+	half3 spec = DirectBRDFSpecular(brdfData, input.normalWS, mainLight.direction, input.viewDirectionWS) * 10;
 	spec *= mainLight.color * mainLight.shadowAttenuation * length(input.normalWS.xz);
 	spec *= 1 - saturate(surfaceData.foamMask * 10);
 
