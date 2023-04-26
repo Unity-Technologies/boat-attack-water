@@ -94,7 +94,6 @@ namespace WaterSystem.Rendering
         {
             if (WaterProjectSettings.Instance == null) return;
             
-            //Profiler.BeginSample("MeshSurface.GenerateSurface");
             var handles = new JobHandle[iterations + 1];
             baseTilesA.Clear();
             WaterTiles.Clear();

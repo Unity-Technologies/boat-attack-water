@@ -80,16 +80,26 @@ namespace WaterSystem
             DepthGenerator.CleanUp();
             
             //Cleanup native arrays
-            _waveData.Dispose();
-            _positions.Dispose();
-            _dynamicPositions.Dispose();
-            _wavePos.Dispose();
-            _waveCachedPos.Dispose();
-            _waveNormal.Dispose();
-            _waveCachedNormal.Dispose();
-            _opacity.Dispose();
-            _waterDepth.Dispose();
-            _depthProfile.Dispose();
+            if(_waveData.IsCreated)
+                _waveData.Dispose();
+            if(_positions.IsCreated)
+                _positions.Dispose();
+            if(_dynamicPositions.IsCreated)
+                _dynamicPositions.Dispose();
+            if(_wavePos.IsCreated)
+                _wavePos.Dispose();
+            if(_waveCachedPos.IsCreated)
+                _waveCachedPos.Dispose();
+            if(_waveNormal.IsCreated)
+                _waveNormal.Dispose();
+            if(_waveCachedNormal.IsCreated)
+                _waveCachedNormal.Dispose();
+            if(_opacity.IsCreated)
+                _opacity.Dispose();
+            if(_waterDepth.IsCreated)
+                _waterDepth.Dispose();
+            if(_depthProfile.IsCreated)
+                _depthProfile.Dispose();
             Initialized = false;
         }
 
@@ -209,9 +219,12 @@ namespace WaterSystem
             
             _waterHeightHandle.Complete();
             
-            _waveCachedPos.CopyFrom(_wavePos);
-            _waveCachedNormal.CopyFrom(_waveNormal);
-            _positions.CopyFrom(_dynamicPositions);
+            if(_wavePos.IsCreated)
+                _waveCachedPos.CopyFrom(_wavePos);
+            if(_waveNormal.IsCreated)
+                _waveCachedNormal.CopyFrom(_waveNormal);
+            if(_dynamicPositions.IsCreated)
+                _positions.CopyFrom(_dynamicPositions);
             
             _processing = false;
         }

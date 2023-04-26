@@ -51,12 +51,13 @@ namespace WaterSystem
         private MeshSurface.WaterMeshSettings meshSettings;
         
         // Render Passes
-        private InfiniteWaterPass _infiniteWaterPass;
+        private InfiniteWaterPlane _infiniteWaterPass;
         private WaterFxPass _waterBufferPass;
         private WaterCausticsPass _causticsPass;
         
         // RuntimeMaterials
         private Material _waterMaterial;
+        private Material _infiniteWaterMaterial;
         private Material _causticMaterial;
 
         // Runttime Resources
@@ -93,6 +94,12 @@ namespace WaterSystem
         
         private void OnEnable()
         {
+            if (WaterProjectSettings.Instance == null || WaterProjectSettings.Instance.resources == null)
+            {
+                Debug.LogError($"No Water Settings Present, disabling {GetType()}");
+                return;
+            }
+
             if (_instance == null)
             {
                 _instance = this;
@@ -127,10 +134,11 @@ namespace WaterSystem
         public void Cleanup()
         {
             CoreUtils.Destroy(_waterMaterial);
+            CoreUtils.Destroy(_infiniteWaterMaterial);
             CoreUtils.Destroy(_causticMaterial);
             GerstnerWavesJobs.Cleanup();
             RenderPipelineManager.beginCameraRendering -= BeginCameraRendering;
-            mesh.Cleanup();
+            mesh?.Cleanup();
             waveBuffer?.Dispose();
         }
 
@@ -148,13 +156,23 @@ namespace WaterSystem
                 DoCaustics(urpData.scriptableRenderer);
             }
 
-            _infiniteWaterPass ??= new InfiniteWaterPass(WaterProjectSettings.Instance.resources.infiniteWaterMesh, WaterProjectSettings.Instance.resources.infiniteWaterShader);
             _waterBufferPass ??= new WaterFxPass();
-            
-            
-            urpData.scriptableRenderer.EnqueuePass(_infiniteWaterPass);
             urpData.scriptableRenderer.EnqueuePass(_waterBufferPass);
-            
+
+            if (_infiniteWaterMaterial == null)
+            {
+                _infiniteWaterMaterial = CoreUtils.CreateEngineMaterial(WaterProjectSettings.Instance.resources.infiniteWaterShader);
+            }
+
+            _infiniteWaterPass ??= new InfiniteWaterPlane(_infiniteWaterMaterial);
+            urpData.scriptableRenderer.EnqueuePass(_infiniteWaterPass);
+
+#if UNITY_2023_3_OR_NEWER || RENDER_GRAPH_ENABLED // RenderGraph
+            // inject dummy pass later in the frame to keep resources alive
+            urpData.scriptableRenderer.EnqueuePass(new PassUtilities.DummyResourcePass(new[]
+                    {PassUtilities.WaterResources.BufferA, PassUtilities.WaterResources.BufferB},
+                RenderPassEvent.AfterRenderingTransparents));
+#endif
             
             var roll = cam.transform.localEulerAngles.z;
             Shader.SetGlobalFloat(CameraRoll, roll);
@@ -196,6 +214,8 @@ namespace WaterSystem
         [ContextMenu("Init")]
         public void Init()
         {
+            
+            
             GenerateColorRamp();
             SetWaves();
 
@@ -207,7 +227,7 @@ namespace WaterSystem
             meshSettings.maxDivisions = 5;
             meshSettings.baseTileSize = 20;
             meshSettings.density = 0.15f;
-            meshSettings.size = new float2(250, 0);
+            meshSettings.size = new float2(350, 0);
             meshSettings.maxWaveHeight = _maxWaveHeight;
 
             PlanarReflections.m_planeOffset = transform.position.y;

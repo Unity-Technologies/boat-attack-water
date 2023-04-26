@@ -1,12 +1,11 @@
 using System;
-using System.Collections;
 using UnityEditor;
 using UnityEngine;
 using WaterSystem.Settings;
 
 namespace WaterSystem
 {
-    public class PropertyDrawers
+    class PropertyDrawers
     {
         [CustomPropertyDrawer(typeof(Data.BasicWaves))]
         public class BasicWavesEditor : PropertyDrawer
@@ -202,7 +201,7 @@ namespace WaterSystem
             }
         }
 
-        [CustomPropertyDrawer(typeof(WaterResources))]
+        [CustomPropertyDrawer(typeof(Settings.Resources))]
         public class WaterResourcesDrawer : PropertyDrawer
         {
             public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)

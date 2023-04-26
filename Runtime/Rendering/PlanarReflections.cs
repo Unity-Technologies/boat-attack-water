@@ -307,8 +307,8 @@ namespace WaterSystem.Rendering
             BeginPlanarReflections?.Invoke(context, _reflectionObjects[camera].Camera); // callback Action for PlanarReflection
 
             //Debug.LogError(UniversalRenderPipeline.SupportsRenderRequest(_reflectionObjects[camera].Camera, typeof(UniversalRenderPipeline.SingleCameraRequest)));
-            UniversalRenderPipeline.SubmitRenderRequest(_reflectionObjects[camera].Camera, typeof(UniversalRenderPipeline.SingleCameraRequest));
-            //UniversalRenderPipeline.RenderSingleCamera(context, _reflectionObjects[camera].Camera); // render planar reflections
+            //UniversalRenderPipeline.SubmitRenderRequest(_reflectionObjects[camera].Camera, typeof(UniversalRenderPipeline.SingleCameraRequest));
+            UniversalRenderPipeline.RenderSingleCamera(context, _reflectionObjects[camera].Camera); // render planar reflections
 
             data.Restore(); // restore the quality settings
             Shader.SetGlobalTexture(_planarReflectionTextureId, _reflectionObjects[camera].Texture); // Assign texture to water shader

@@ -18,15 +18,10 @@ namespace WaterSystem.Settings
             get
             {
                 if (_instance != null) return _instance;
-                _instance = Resources.Load<WaterProjectSettings>(SettingsConsts.AssetString);
+                _instance = UnityEngine.Resources.Load<WaterProjectSettings>(SettingsConsts.AssetString);
                 return _instance;
             }
             set => _instance = value;
-        }
-
-        public WaterProjectSettings()
-        {
-            resources = new WaterResources();
         }
         
         /// <summary>
@@ -37,13 +32,18 @@ namespace WaterSystem.Settings
         /// <summary>
         /// List of WaterQualitySettings for all the Quality Levels
         /// </summary>
-        [SerializeReference] public List<WaterQualitySettings> qualitySettings;
+        [SerializeReference] public List<WaterQualitySettings> qualitySettings = new List<WaterQualitySettings>();
 
         /// <summary>
         /// Resources for the WaterSystem, contains shaders, meshes, textures, etc..
         /// </summary>
-        [SerializeReference] public WaterResources resources;
-
+        [SerializeReference] public Resources _resources;
+        
+        public WaterProjectSettings()
+        {
+            defaultQualitySettings = new WaterQualitySettings();
+        }
+        
         /// <summary>
         /// Returns the WaterQualitySettings that matches the current Quality Level.
         /// </summary>
@@ -52,57 +52,31 @@ namespace WaterSystem.Settings
             get
             {
                 var qualityLevel = UnityEngine.QualitySettings.GetQualityLevel();
+                if (_instance.qualitySettings.Count < qualityLevel) return _instance.defaultQualitySettings;
                 return _instance.qualitySettings[qualityLevel] ?? _instance.defaultQualitySettings;
             }
         }
-    }
-    
-    /// <summary>
-    /// Resources for the system, shaders, textures meshes, etc
-    /// </summary>
-    [Serializable]
-    public class WaterResources 
-    {
-        [Tooltip("Texture used for the foam.")]
-        public Texture2D foamMap; // a default foam texture map
-        public Texture2D surfaceMap; // a default normal/caustic map
-        public Texture2D detailNormalMap; // default normal map
-        public Texture2D waterFX; // texture with correct values for default WaterFX
-        public Texture2D ditherNoise; // blue noise normal map
-        public Mesh infiniteWaterMesh;
-        public Mesh waterTile;
-        public Shader waterShader;
-        public Shader causticShader;
-        public Shader infiniteWaterShader;
-        
-        public void Init()
+
+        public Resources resources
         {
-#if UNITY_EDITOR
-            const string basePath = "Packages/com.unity.urp-water-system/Runtime/";
-            // Textures
-            foamMap = AssetDatabase.LoadAssetAtPath<Texture2D>(basePath + "Textures/WaterFoam.png");
-            detailNormalMap = AssetDatabase.LoadAssetAtPath<Texture2D>(basePath + "Textures/WaterNormals.tif");
-            surfaceMap = AssetDatabase.LoadAssetAtPath<Texture2D>(basePath + "Textures/WaterSurface_single.tif");
-            waterFX = AssetDatabase.LoadAssetAtPath<Texture2D>(basePath + "Textures/DefaultWaterFX.tif");
-            ditherNoise = AssetDatabase.LoadAssetAtPath<Texture2D>(basePath + "Textures/normalNoise.png");
-            // Materials
-            // Meshes
-            infiniteWaterMesh = AssetDatabase.LoadAssetAtPath<Mesh>(basePath + "Meshes/InfiniteSea.fbx");
-            waterTile = AssetDatabase.LoadAssetAtPath<Mesh>(basePath + "Meshes/WaterTile.fbx");
-            // Shaders
-            waterShader = Shader.Find("Boat Attack/Water");
-            causticShader = Shader.Find("Boat Attack/Water/Caustics");
-            infiniteWaterShader = Shader.Find("Boat Attack/Water/InfiniteWater");
-#endif
+            get
+            {
+                if (_resources != null) return _resources;
+                
+                _resources = new Resources();
+                _resources.Init();
+                return _resources;
+            }
         }
     }
     
     public static class SettingsConsts
     {
-        private const string Build = "/Resources/";
-        private const string BuildRelativeFolder = "Assets" + Build;
+        public const string Build = "Resources";
+        public const string AssetFolder = "Assets";
+        public static string BuildRelativeFolder => AssetFolder + "/" + Build;
         public const string AssetString = "WaterSystemSettings";
         private const string ext = ".asset";
-        public static string FullBuildPath => BuildRelativeFolder + AssetString + ext;
+        public static string FullBuildPath => BuildRelativeFolder + "/" + AssetString + ext;
     }
 }

@@ -1,10 +1,7 @@
 using System;
-using System.Reflection;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
-using WaterSystem.Rendering;
-using Object = System.Object;
 
 namespace WaterSystem.Settings
 {
@@ -46,11 +43,8 @@ namespace WaterSystem.Settings
                 {
                     // Serialized data
                     settings = GetSerializedSettings();
-                    resources = settings.FindProperty(nameof(WaterProjectSettings.resources));
+                    resources = settings.FindProperty(nameof(WaterProjectSettings._resources));
                     defaultSettings = settings.FindProperty(nameof(WaterProjectSettings.defaultQualitySettings));
-                    
-                    // raw data
-                    rawData = settings.targetObject as WaterProjectSettings;
                     
                     // string data
                     qualityNames = new string[QualitySettings.names.Length];
@@ -58,22 +52,7 @@ namespace WaterSystem.Settings
                     
                     // Get all quality data
                     qualitySettings = new SerializedProperty[qualityNames.Length];
-
-                    if (!Application.isPlaying)
-                    {
-                        while (rawData.qualitySettings.Count != QualitySettings.names.Length)
-                        {
-                            if (rawData.qualitySettings.Count < QualitySettings.names.Length)
-                            {
-                                rawData.qualitySettings.Add(rawData.defaultQualitySettings);
-                            }
-                            else
-                            {
-                                rawData.qualitySettings.RemoveAt(rawData.qualitySettings.Count - 1);
-                            }
-                        }
-                    }
-
+                    
                     for (int i = 0; i < qualitySettings.Length; i++)
                     {
                         qualitySettings[i] = settings.FindProperty(nameof(WaterProjectSettings.qualitySettings))
@@ -163,8 +142,11 @@ namespace WaterSystem.Settings
         {
             if (index >= 0)
             {
-                EditorGUI.BeginDisabledGroup(rawData.qualitySettings[index] == rawData.defaultQualitySettings);
-                EditorGUILayout.PropertyField(qualitySettings[index], true);
+                var disable = qualitySettings[index] == null || qualitySettings[index].managedReferenceValue ==
+                    defaultSettings.managedReferenceValue;
+                var data = disable ? defaultSettings : qualitySettings[index];
+                EditorGUI.BeginDisabledGroup(disable);
+                EditorGUILayout.PropertyField(data, true);
                 EditorGUI.EndDisabledGroup();
             }
             else
@@ -245,12 +227,20 @@ namespace WaterSystem.Settings
             if(WaterProjectSettings.Instance != null) return WaterProjectSettings.Instance;
             var settings = AssetDatabase.LoadAssetAtPath<WaterProjectSettings>(SettingsConsts.FullBuildPath);
             if (settings != null) return settings;
+            
             Debug.Log("Making new WaterProjectSettings asset");
             settings = ScriptableObject.CreateInstance<WaterProjectSettings>();
-            
-            // setup defaults
-            settings.resources.Init();
-            
+
+            // check for folder
+#if UNITY_2023_1_OR_NEWER
+            if (!AssetDatabase.AssetPathExists(SettingsConsts.BuildRelativeFolder))
+#else
+            if (!AssetDatabase.IsValidFolder(SettingsConsts.BuildRelativeFolder))
+#endif
+            {
+                AssetDatabase.CreateFolder(SettingsConsts.AssetFolder, SettingsConsts.Build);
+            }
+
             AssetDatabase.CreateAsset(settings, SettingsConsts.FullBuildPath);
             AssetDatabase.SaveAssets();
             return settings;

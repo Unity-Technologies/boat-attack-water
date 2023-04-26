@@ -377,11 +377,11 @@ half3 WaterShading(WaterInputData input, WaterSurfaceData surfaceData, float4 ad
 	
     BRDFData brdfData;
     half alpha = 1;
-	half smoothness = 0.95;// 1-saturate(fresnelTerm);
+	half smoothness = 0.9;// 1-saturate(fresnelTerm);
     InitializeBRDFData(half3(0, 0, 0), 0, half3(1, 1, 1), smoothness, alpha, brdfData);
-	half3 spec = DirectBRDFSpecular(brdfData, input.normalWS, mainLight.direction, input.viewDirectionWS) * 10;
+	half3 spec = DirectBRDFSpecular(brdfData, input.normalWS, mainLight.direction, input.viewDirectionWS);
 	spec *= mainLight.color * mainLight.shadowAttenuation * length(input.normalWS.xz);
-	spec *= 1 - saturate(surfaceData.foamMask * 10);
+	spec *= 1 - saturate(surfaceData.foamMask * 4);
 
 	// Foam
 	surfaceData.foam *= (GI + directLighting * mainLight.shadowAttenuation) * 3 * saturate(surfaceData.foamMask);

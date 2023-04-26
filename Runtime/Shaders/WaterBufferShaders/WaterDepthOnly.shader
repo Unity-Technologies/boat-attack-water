@@ -8,6 +8,7 @@ Shader "Boat Attack/Water/WaterBuffer/WaterDepthOnly"
     {
         Tags { "RenderType"="Transparent" "Queue"="Transparent" "RenderPipeline" = "UniversalPipeline" }
 		ZWrite Off
+        ZTest Always
 		//Blend One One
         ColorMask B 1
 		LOD 100
