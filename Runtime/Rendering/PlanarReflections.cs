@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.Experimental.Rendering;
+using WaterSystem.Settings;
 
 namespace WaterSystem.Rendering
 {
@@ -67,7 +68,7 @@ namespace WaterSystem.Rendering
             }
         }
 
-        public static PlanarReflectionSettings m_settings = new PlanarReflectionSettings();
+        private static PlanarReflectionSettings m_settings => WaterProjectSettings.QualitySettings.reflectionSettings.planarSettings;
 
         public static float m_planeOffset;
 
@@ -100,13 +101,15 @@ namespace WaterSystem.Rendering
 
             dest.CopyFrom(src);
             dest.useOcclusionCulling = false;
-            if (dest.gameObject.TryGetComponent(out UniversalAdditionalCameraData camData))
+            var data = dest.GetUniversalAdditionalCameraData();
+            if (data)
             {
-                camData.renderShadows = m_settings.m_Shadows; // turn off shadows for the reflection camera
+                data.renderPostProcessing = data.requiresDepthTexture = data.requiresColorTexture = false; // set these to false(just in case)
+                data.renderShadows = m_settings.m_Shadows; // turn off shadows for the reflection camera based on settings
                 switch (m_settings.m_RendererMode)
                 {
                     case RendererMode.Static:
-                        camData.SetRenderer(m_settings.m_RendererIndex);
+                        data.SetRenderer(m_settings.m_RendererIndex);
                         break;
                     case RendererMode.Offset:
                         //TODO need API to get current index
@@ -302,6 +305,9 @@ namespace WaterSystem.Rendering
             data.Set(!m_settings.m_ObliqueProjection); // set quality settings
 
             BeginPlanarReflections?.Invoke(context, _reflectionObjects[camera].Camera); // callback Action for PlanarReflection
+
+            //Debug.LogError(UniversalRenderPipeline.SupportsRenderRequest(_reflectionObjects[camera].Camera, typeof(UniversalRenderPipeline.SingleCameraRequest)));
+            //UniversalRenderPipeline.SubmitRenderRequest(_reflectionObjects[camera].Camera, typeof(UniversalRenderPipeline.SingleCameraRequest));
             UniversalRenderPipeline.RenderSingleCamera(context, _reflectionObjects[camera].Camera); // render planar reflections
 
             data.Restore(); // restore the quality settings

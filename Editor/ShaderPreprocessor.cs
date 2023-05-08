@@ -51,8 +51,8 @@ class ShaderPreprocessor : IPreprocessShaders
         var refType = 0;
         foreach (var oceanGuid in oceans)
         {
-            var ocean = AssetDatabase.LoadAssetAtPath<Ocean>(AssetDatabase.GUIDToAssetPath(oceanGuid));
-            refType |= (int)ocean.settingsData.refType;
+            //var ocean = AssetDatabase.LoadAssetAtPath<Ocean>(AssetDatabase.GUIDToAssetPath(oceanGuid));
+            //refType |= (int)ocean.settingsData.refType;
         }
 
         /*

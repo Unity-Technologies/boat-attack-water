@@ -86,7 +86,7 @@
                 half4 waterBufferB = WaterBufferB(screenUV.xy);
 
 				InfinitePlane plane = WorldPlane(i.viewDirectionWS, i.positionWS);
-				i.positionWS = plane.positionWS;
+				i.positionWS = plane.positionWS + HALF_MIN;
                 float3 viewDirectionWS = GetCameraPositionWS().xyz - i.positionWS.xyz;
 				float3 viewPos = TransformWorldToView(i.positionWS);
 				float4 additionalData = float4(length(viewPos / viewPos.z), length(viewDirectionWS), waterBufferA.w, 0);
@@ -96,7 +96,7 @@
                 i.normalWS = half3(0.0, 1.0, 0.0);
                 i.viewDirectionWS = normalize(GetCameraPositionWS() - i.positionWS).xyzz;
                 i.additionalData = additionalData;
-                i.uv = DetailUVs(i.positionWS * 0.2, 1);
+                i.uv = DetailUVs(i.positionWS, 1);
             	i.preWaveSP = screenUV.xyy;
 
                 WaterInputData inputData;

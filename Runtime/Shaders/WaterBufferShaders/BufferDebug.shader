@@ -47,7 +47,7 @@ Shader "Boat Attack/Water/WaterBuffer/BufferDebug"
             /// A = ???
             struct Output
             {
-                half4 buffer1 : SV_Target;
+                half4 buffer1 : SV_Target0;
                 half4 buffer2 : SV_Target1;
             };
 
@@ -63,7 +63,7 @@ Shader "Boat Attack/Water/WaterBuffer/BufferDebug"
                 return output;
             }
 
-            Output frag (const Varyings input)
+            Output frag (const Varyings input) : SV_Target
             {
                 Output output;
                 // sample the texture

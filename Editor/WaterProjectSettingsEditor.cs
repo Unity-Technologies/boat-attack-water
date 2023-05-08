@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
@@ -7,6 +8,29 @@ namespace WaterSystem.Settings
     // Settings GUI
     public static class WaterSettingsGUI
     {
+        private static int activeTab;
+
+        // Group Foldout bools
+        private static bool showResources;
+        private static bool showDefault;
+        private static bool[] showQualityLevel;
+        
+        // Raw data
+        private static WaterProjectSettings rawData;
+        
+        // Serialized data
+        private static SerializedObject settings;
+        private static SerializedProperty resources;
+        private static SerializedProperty defaultSettings;
+        private static SerializedProperty[] qualitySettings;
+        
+        // Data
+        private static string[] qualityNames;
+        private static string[] tabStrings = new []{"Quality Settings", "Resources"};
+        private static Vector2 scroll;
+        private static string editorPrefPrefix = "BAW_WaterProjectSettings_";
+        private static string editorPrefFoldout =  editorPrefPrefix + "Foldout_";
+
         [SettingsProvider]
         public static SettingsProvider CreateMyCustomSettingsProvider()
         {
@@ -14,36 +38,215 @@ namespace WaterSystem.Settings
             // Second parameter is the scope of this setting: it only appears in the Project Settings window.
             var provider = new SettingsProvider("Project/Water System (Boat Attack)", SettingsScope.Project)
             {
+                // onActivate
+                activateHandler = (s, element) =>
+                {
+                    // Serialized data
+                    settings = GetSerializedSettings();
+                    resources = settings.FindProperty(nameof(WaterProjectSettings._resources));
+                    defaultSettings = settings.FindProperty(nameof(WaterProjectSettings.defaultQualitySettings));
+                    
+                    // string data
+                    qualityNames = new string[QualitySettings.names.Length];
+                    QualitySettings.names.CopyTo(qualityNames, 0);
+                    
+                    // Get all quality data
+                    qualitySettings = new SerializedProperty[qualityNames.Length];
+                    
+                    for (int i = 0; i < qualitySettings.Length; i++)
+                    {
+                        qualitySettings[i] = settings.FindProperty(nameof(WaterProjectSettings.qualitySettings))
+                            .GetArrayElementAtIndex(i);
+                    }
+
+                    showQualityLevel = new bool[qualityNames.Length];
+                    for (var index = 0; index < showQualityLevel.Length; index++)
+                    {
+                        showQualityLevel[index] = EditorPrefs.GetBool(editorPrefFoldout + qualityNames[index]);
+                    }
+                },
+                // onDeactivate
+                deactivateHandler = () =>
+                {
+                    for (var index = 0; index < showQualityLevel?.Length; index++)
+                    {
+                        EditorPrefs.SetBool(editorPrefFoldout + qualityNames[index], showQualityLevel[index]);
+                    }
+                },
                 // Create the SettingsProvider and initialize its drawing (IMGUI) function in place:
                 guiHandler = (searchContext) =>
                 {
-                    var settings = GetSerializedSettings();
-                    EditorGUILayout.PropertyField(settings.FindProperty("m_Number"), new GUIContent("My Number"));
-                    EditorGUILayout.PropertyField(settings.FindProperty("m_SomeString"), new GUIContent("My String"));
-                    if (settings.hasModifiedProperties)
+                    EditorGUI.BeginChangeCheck();
+                    EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+                    activeTab = GUILayout.Toolbar(activeTab, tabStrings);
+
+                    switch (activeTab)
+                    {
+                        case 1:
+                        {
+                            // draw resources
+                            DrawFoldoutArea(ref showResources, 
+                                new GUIContent("Resources", "hello"), 
+                                settings, 
+                                0, 
+                                DrawResources,
+                                ShowResourceHeaderContextMenu);
+                        }
+                            break;
+                        case 0:
+                        {
+                            if(Application.isPlaying)
+                                EditorGUILayout.HelpBox("Cannot edit/view settings in Playmode.", MessageType.Warning);
+                            EditorGUI.BeginDisabledGroup(Application.isPlaying);
+                            // draw default
+                            DrawFoldoutArea(ref showDefault,
+                                new GUIContent("Default", "hello"),
+                                settings,
+                                -1,
+                                DrawQualitySettings);
+
+                            // draw quality levels
+                            for (var index = 0; index < qualityNames.Length; index++)
+                            {
+                                var qualityString = qualityNames[index];
+                                if (QualitySettings.GetQualityLevel() == index)
+                                    qualityString += " (Current)";
+                                DrawFoldoutArea(ref showQualityLevel[index],
+                                    new GUIContent(qualityString, "hello"),
+                                    settings,
+                                    index,
+                                    DrawQualitySettings,
+                                    ShowQualityHeaderContextMenu);
+                            }
+                            EditorGUI.EndDisabledGroup();
+                        }
+                            break;
+                    }
+                    EditorGUILayout.EndVertical();
+                    if (EditorGUI.EndChangeCheck())
+                    {
                         settings.ApplyModifiedProperties();
-                    //    SaveOnChange(settings);
+                        if(Ocean.Instance != null)
+                            Ocean.Instance.Init();
+                    }
                 },
 
                 // Populate the search keywords to enable smart search filtering and label highlighting:
-                keywords = new HashSet<string>(new[] {"Number", "Some String"})
+                keywords = new HashSet<string>(new[] {"SSR"})
             };
 
             return provider;
         }
         
-        public static WaterProjectSettings GetOrCreateSettings()
+        static void DrawQualitySettings(SerializedObject obj, int index)
         {
-            var settings = AssetDatabase.LoadAssetAtPath<WaterProjectSettings>(SettingsConsts.FullBuildPath + ".asset");
+            if (index >= 0)
+            {
+                var disable = qualitySettings[index] == null || qualitySettings[index].managedReferenceValue ==
+                    defaultSettings.managedReferenceValue;
+                var data = disable ? defaultSettings : qualitySettings[index];
+                EditorGUI.BeginDisabledGroup(disable);
+                EditorGUILayout.PropertyField(data, true);
+                EditorGUI.EndDisabledGroup();
+            }
+            else
+            {
+                EditorGUILayout.PropertyField(defaultSettings, true);
+            }
+        }
+
+        static void DrawResources(SerializedObject obj, int index)
+        {
+            EditorGUILayout.PropertyField(resources,
+                true);
+        }
+
+        static void DrawFoldoutArea(ref bool foldoutBool, GUIContent foldoutContent, SerializedObject obj, int index, Action<SerializedObject, int> contentGUI, Action<Rect, int> contextAction = null)
+        {
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            foldoutBool = EditorGUILayout.BeginFoldoutHeaderGroup(foldoutBool, foldoutContent, null, rect => {contextAction?.Invoke(rect, index);});
+            if (foldoutBool)
+            {
+                contentGUI?.Invoke(obj, index);
+            }
+            EditorGUILayout.EndFoldoutHeaderGroup();
+            EditorGUILayout.EndVertical();
+        }
+
+        static void ShowResourceHeaderContextMenu(Rect position, int index)
+        {
+            var menu = new GenericMenu();
+            menu.AddItem(new GUIContent("Reset"), false, ResetResources);
+            menu.DropDown(position);
+        }
+
+        static void ResetResources()
+        {
+            if (EditorUtility.DisplayDialog("Reset Water System Resources",
+                    "This action cannot be undone!",
+                    "Reset",
+                    "Cancel"))
+            {
+                WaterProjectSettings.Instance.resources.Init();
+            }
+        }
+        
+        static void ShowQualityHeaderContextMenu(Rect position, int index)
+        {
+            var menu = new GenericMenu();
+            var unique = rawData.qualitySettings[index] != rawData.defaultQualitySettings;
+            var a = new GUIContent("Reset to Default");
+            var b = new GUIContent("Custom settings");
+
+            menu.AddItem(unique ? a : b, false, () => {SetQualityLevel(index, !unique);});
+            menu.AddDisabledItem(unique ? b : a);
+            menu.DropDown(position);
+        }
+        
+        static void SetQualityLevel(int index, bool unique)
+        {
+            if (!unique)
+            {
+                if (EditorUtility.DisplayDialog("Reset Water System Resources",
+                        "This action cannot be undone!",
+                        "Reset",
+                        "Cancel"))
+                {
+                    qualitySettings[index].managedReferenceValue = defaultSettings.managedReferenceValue;
+                }
+            }
+            else
+            {
+                WaterProjectSettings.Instance.qualitySettings[index] = WaterQualitySettings.Create();
+                qualitySettings[index].managedReferenceValue = WaterProjectSettings.Instance.qualitySettings[index];
+            }
+        }
+
+        private static WaterProjectSettings GetOrCreateSettings()
+        {
+            if(WaterProjectSettings.Instance != null) return WaterProjectSettings.Instance;
+            var settings = AssetDatabase.LoadAssetAtPath<WaterProjectSettings>(SettingsConsts.FullBuildPath);
             if (settings != null) return settings;
-            Debug.LogError("Making new water asset");
+            
+            Debug.Log("Making new WaterProjectSettings asset");
             settings = ScriptableObject.CreateInstance<WaterProjectSettings>();
+
+            // check for folder
+#if UNITY_2023_1_OR_NEWER
+            if (!AssetDatabase.AssetPathExists(SettingsConsts.BuildRelativeFolder))
+#else
+            if (!AssetDatabase.IsValidFolder(SettingsConsts.BuildRelativeFolder))
+#endif
+            {
+                AssetDatabase.CreateFolder(SettingsConsts.AssetFolder, SettingsConsts.Build);
+            }
+
             AssetDatabase.CreateAsset(settings, SettingsConsts.FullBuildPath);
             AssetDatabase.SaveAssets();
             return settings;
         }
 
-        public static SerializedObject GetSerializedSettings()
+        private static SerializedObject GetSerializedSettings()
         {
             return new SerializedObject(GetOrCreateSettings());
         }

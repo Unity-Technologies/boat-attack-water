@@ -1,13 +1,14 @@
 {
   "name": "com.unity.urp-water-system",
   "description": "A water system for use in URP, developed for the Boat Attack demo project.",
-  "version": "2.0.0-preview.1",
+  "version": "2.0.0-preview.2",
   "unity": "2021.3",
   "displayName": "URP Water System",
   "dependencies": {
-    "com.unity.mathematics": "1.1.0",
-    "com.unity.burst": "1.2.3",
-    "com.unity.render-pipelines.universal": "12.0.0"
+    "com.unity.burst": "1.8.2",
+    "com.unity.collections": "1.2.4",
+    "com.unity.mathematics": "1.2.6",
+    "com.unity.render-pipelines.universal": "12.1.10"
   },
   "samples": [
     {
@@ -15,5 +16,6 @@
       "description": "Collection of scenes showcasing different features of the Universal Render Pipeline.",
       "path": "Samples~/URPPackageSamples"
     }
-  ]
+  ],
+  "type": "sample"
 }
