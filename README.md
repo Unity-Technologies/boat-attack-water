@@ -1,5 +1,5 @@
 # Boat Attack Water
-[![openupm](https://img.shields.io/npm/v/com.littlebigfun.addressable-importer?label=openupm&registry_uri=https://package.openupm.com)](https://openupm.com/packages/com.littlebigfun.addressable-importer/)
+[![openupm](https://img.shields.io/npm/v/com.unity.urp-water-system?label=openupm&registry_uri=https://package.openupm.com)](https://openupm.com/packages/com.unity.urp-water-system/)
 
 This repo contains the Unity package for the water system that is used in the Universal Render Pipeline demo 'Boat Attack'.
 The package is under constant development and is not supported in any official capacity.
