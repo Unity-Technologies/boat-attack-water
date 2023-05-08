@@ -27,7 +27,14 @@ namespace WaterSystem
             get
             {
                 if (_instance == null)
-                    _instance = (Ocean)FindObjectOfType(typeof(Ocean));
+                {
+                    #if UNITY_2023_1_OR_NEWER
+                    _instance = (Ocean) FindFirstObjectByType(typeof(Ocean));
+                    #else
+                    _instance = (Ocean) FindObjectOfType(typeof(Ocean));
+                    #endif
+                }
+
                 return _instance;
             }
         }

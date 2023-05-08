@@ -42,7 +42,7 @@ namespace WaterSystem
         public half offset = (half)4.0;
         public LayerMask mask = new LayerMask();
         
-        private static readonly float maxDepth = -999f;
+        //private static readonly float maxDepth = -999f;
 
         #if UNITY_EDITOR
         [ContextMenu("Capture Depth")]

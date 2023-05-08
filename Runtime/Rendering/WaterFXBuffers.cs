@@ -14,14 +14,13 @@ namespace WaterSystem.Rendering
 
         private RenderTextureDescriptor td;
         
-#if UNITY_2023_3_OR_NEWER || RENDER_GRAPH_ENABLED // RenderGraph
+#if UNITY_2022_1_OR_NEWER
         private RTHandle m_BufferTargetA, m_BufferTargetB;
 #else
         private int m_BufferTargetA, m_BufferTargetB;
 #endif
         
         private const string k_RenderWaterFXTag = "Render Water FX";
-        private ProfilingSampler m_WaterFX_Profile = new ProfilingSampler(k_RenderWaterFXTag);
         private readonly ShaderTagId m_WaterFXShaderTag = new ShaderTagId("WaterFX");
 
         //r = foam mask
@@ -34,6 +33,7 @@ namespace WaterSystem.Rendering
         
         public WaterFxPass()
         {
+            profilingSampler = new ProfilingSampler(k_RenderWaterFXTag);
             // only wanting to render transparent objects
             m_FilteringSettings = new FilteringSettings(RenderQueueRange.transparent);
             renderPassEvent = RenderPassEvent.AfterRenderingPrePasses;
@@ -44,7 +44,7 @@ namespace WaterSystem.Rendering
         {
             GetRTD(cameraTextureDescriptor.width, cameraTextureDescriptor.height);
             
-#if UNITY_2023_3_OR_NEWER || RENDER_GRAPH_ENABLED // RenderGraph
+#if UNITY_2022_1_OR_NEWER
             RenderingUtils.ReAllocateIfNeeded(ref m_BufferTargetA, td, FilterMode.Bilinear, name:m_BufferATexture);
             RenderingUtils.ReAllocateIfNeeded(ref m_BufferTargetB, td, FilterMode.Bilinear, name:m_BufferBTexture);
             RTHandle[] multiTargets = { m_BufferTargetA, m_BufferTargetB };
@@ -76,10 +76,15 @@ namespace WaterSystem.Rendering
             
             var cmd = CommandBufferPool.Get();
             cmd.Clear();
-            using (new ProfilingScope(cmd, m_WaterFX_Profile)) // makes sure we have profiling ability
-            {
-                context.DrawRenderers(renderingData.cullResults, ref drawSettings, ref m_FilteringSettings);
-            }
+#if UNITY_2023_1_OR_NEWER // RenderGraph
+            var rendererListParams =
+                new RendererListParams(renderingData.cullResults, drawSettings, m_FilteringSettings);
+            var rendererList =
+                context.CreateRendererList(ref rendererListParams);
+            cmd.DrawRendererList(rendererList);
+#else
+            context.DrawRenderers(renderingData.cullResults, ref drawSettings, ref m_FilteringSettings);
+#endif
             context.ExecuteCommandBuffer(cmd);
             CommandBufferPool.Release(cmd);
         }
@@ -105,7 +110,7 @@ namespace WaterSystem.Rendering
             frameResources.SetTexture(PassUtilities.WaterResources.BufferA, bufferA);
             frameResources.SetTexture(PassUtilities.WaterResources.BufferB, bufferB);
             
-            using (var builder = renderGraph.AddRasterRenderPass<PassData>(k_RenderWaterFXTag, out var passData, m_WaterFX_Profile))
+            using (var builder = renderGraph.AddRasterRenderPass<PassData>(k_RenderWaterFXTag, out var passData, profilingSampler))
             {
                 builder.AllowPassCulling(false);
 
