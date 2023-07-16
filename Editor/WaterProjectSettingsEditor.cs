@@ -225,7 +225,7 @@ namespace WaterSystem.Settings
         private static WaterProjectSettings GetOrCreateSettings()
         {
             if(WaterProjectSettings.Instance != null) return WaterProjectSettings.Instance;
-            var settings = AssetDatabase.LoadAssetAtPath<WaterProjectSettings>(SettingsConsts.FullBuildPath);
+            var settings = UnityEngine.Resources.Load<WaterProjectSettings>(SettingsConsts.AssetString);
             if (settings != null) return settings;
             
             Debug.Log("Making new WaterProjectSettings asset");
