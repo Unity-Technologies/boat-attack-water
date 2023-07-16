@@ -337,7 +337,7 @@ namespace WaterSystem.Rendering
             {
                 GL.invertCulling = true;
                 RenderSettings.fog = fog; // disable fog for now as it's incorrect with projection
-                QualitySettings.maximumLODLevel = 1;
+                //QualitySettings.maximumLODLevel = 1;
                 QualitySettings.lodBias = _lodBias * 0.5f;
             }
 
@@ -345,7 +345,7 @@ namespace WaterSystem.Rendering
             {
                 GL.invertCulling = false;
                 RenderSettings.fog = _fog;
-                QualitySettings.maximumLODLevel = _maxLod;
+                //QualitySettings.maximumLODLevel = _maxLod;
                 QualitySettings.lodBias = _lodBias;
             }
         }
