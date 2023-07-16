@@ -151,7 +151,7 @@ namespace WaterSystem
 
         private void BeginCameraRendering(ScriptableRenderContext src, Camera cam)
         {
-            if (cam.cameraType == CameraType.Preview || _instance == null) return;
+            if (cam.cameraType == CameraType.Preview || cam.orthographic || cam.fieldOfView < 5 || _instance == null) return;
 
             if (WaterProjectSettings.QualitySettings.reflectionSettings.reflectionType == Data.ReflectionSettings.Type.PlanarReflection)
                 PlanarReflections.Execute(src, cam, _instance.transform);
