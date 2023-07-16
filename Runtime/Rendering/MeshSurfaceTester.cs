@@ -42,7 +42,7 @@ namespace WaterSystem.Rendering
 
         public void MakeSurface(ScriptableRenderContext context, Camera camera)
         {
-            if (camera.cameraType == CameraType.Preview || camera.orthographic || camera.fieldOfView < 5 || !debugCam) return;
+            if (camera.cameraType == CameraType.Preview || camera.orthographic || camera.fieldOfView < 5 || (camera.cullingMask & (1 << gameObject.layer)) == 0 || !debugCam) return;
 
             meshSurf.transformMatrix = transform.localToWorldMatrix;
             meshSurf.GenerateSurface(ref settings, ref camera, /* ref debugCam,*/ ref testMat, gameObject.layer);
