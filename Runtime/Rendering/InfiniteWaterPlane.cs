@@ -21,17 +21,16 @@ namespace WaterSystem.Rendering
             public Matrix4x4 Matrix;
         }
 
-        private readonly Material _material;
+        public Material Material;
         private readonly MaterialPropertyBlock _mpb = new MaterialPropertyBlock();
         private readonly SphericalHarmonicsL2[] _ambientProbe = new SphericalHarmonicsL2[1];
 
         private const string PassName = nameof(InfiniteWaterPlane);
 
-        public InfiniteWaterPlane(Material material)
+        public InfiniteWaterPlane()
         {
             renderPassEvent = RenderPassEvent.BeforeRenderingTransparents;
             profilingSampler = new ProfilingSampler(PassName);
-            _material = material;
         }
         
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
@@ -74,7 +73,7 @@ namespace WaterSystem.Rendering
         private void SetupPassData(ref PassData data, CameraData cameraData)
         {
             data.InfiniteMesh = WaterProjectSettings.Instance.resources?.infiniteWaterMesh;
-            data.InfiniteMaterial = _material;
+            data.InfiniteMaterial = Material;
             data.Matrix = Matrix4x4.TRS(cameraData.worldSpaceCameraPos, Quaternion.identity, Vector3.one);
             data.MPB = _mpb;
             _ambientProbe[0] = RenderSettings.ambientProbe;

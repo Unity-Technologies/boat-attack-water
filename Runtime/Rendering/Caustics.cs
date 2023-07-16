@@ -10,7 +10,7 @@ namespace WaterSystem.Rendering
 {
     public class WaterCausticsPass : ScriptableRenderPass
     {
-        private static Material _material;
+        public Material Material;
         
         private class PassData
         {
@@ -19,13 +19,9 @@ namespace WaterSystem.Rendering
             internal Matrix4x4 matrix;
         }
 
-        public WaterCausticsPass(Material material)
+        public WaterCausticsPass()
         {
             profilingSampler = new ProfilingSampler(GetType().Name);
-            if (_material == null)
-            {
-                _material = material;
-            }
         }
 
         public override void Configure(CommandBuffer cmd, RenderTextureDescriptor cameraTextureDescriptor)
@@ -88,7 +84,7 @@ namespace WaterSystem.Rendering
             var sunMatrix = RenderSettings.sun != null
                 ? RenderSettings.sun.transform.localToWorldMatrix
                 : Matrix4x4.TRS(Vector3.zero, Quaternion.Euler(-45f, 45f, 0f), Vector3.one);
-            data.WaterCausticMaterial = _material;
+            data.WaterCausticMaterial = Material;
             data.WaterCausticMaterial.SetMatrix("_MainLightDir", sunMatrix);
             data.WaterCausticMaterial.SetFloat("_WaterLevel", Ocean.Instance.transform.position.y);
             // Create mesh if needed
