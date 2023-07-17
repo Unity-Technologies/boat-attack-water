@@ -18,7 +18,7 @@ namespace WaterSystem.Rendering
     {
         public Material testMat;
         public Camera debugCam;
-        
+
         public MeshSurface.WaterMeshSettings settings;
 
         private MeshSurface meshSurf;
@@ -30,7 +30,7 @@ namespace WaterSystem.Rendering
 
             if (settings.baseTileSize == 0)
                 settings = MeshSurface.NewMeshSettings();
-            
+
             meshSurf = new MeshSurface();
         }
 
@@ -42,7 +42,7 @@ namespace WaterSystem.Rendering
 
         public void MakeSurface(ScriptableRenderContext context, Camera camera)
         {
-            if (camera.cameraType == CameraType.Preview || camera.orthographic || camera.fieldOfView < 5 || (camera.cullingMask & (1 << gameObject.layer)) == 0 || !debugCam) return;
+            if (!WaterUtility.CanRender(gameObject, camera) || !debugCam) return;
 
             meshSurf.transformMatrix = transform.localToWorldMatrix;
             meshSurf.GenerateSurface(ref settings, ref camera, /* ref debugCam,*/ ref testMat, gameObject.layer);
@@ -54,7 +54,7 @@ namespace WaterSystem.Rendering
             Gizmos.DrawWireCube(Vector3.zero, new Vector3(settings.size.x, 0f, settings.size.y));
         }
     }
-    
+
     public class MeshSurface
     {
         private Vector4 settingsShader = Vector4.one;
@@ -63,7 +63,7 @@ namespace WaterSystem.Rendering
         private NativeList<WaterTile> baseTilesB;
         private NativeList<WaterTile> WaterTiles;
         private NativeArray<float4> FrustumPlanes;
-        
+
         private NativeArray<int> TileCount;
         private int iterations = 5;
 
@@ -89,11 +89,11 @@ namespace WaterSystem.Rendering
         {
             GenerateSurface(ref settings, ref cam, ref cam, ref material, layer);
         }
-        
+
         public void GenerateSurface(ref WaterMeshSettings settings, ref Camera cam, ref Camera debugCam, ref Material material, int layer)
         {
             if (WaterProjectSettings.Instance == null) return;
-            
+
             var handles = new JobHandle[iterations + 1];
             baseTilesA.Clear();
             WaterTiles.Clear();
@@ -106,7 +106,7 @@ namespace WaterSystem.Rendering
                 pos.y = transformMatrix.GetPosition().y;
                 transformMatrix = Matrix4x4.TRS(pos, Quaternion.identity, Vector3.one);
             }
-            
+
             // Setup culling planes
             cullingPlanes = GeometryUtility.CalculateFrustumPlanes(debugCam);
             for (int i = 0; i < cullingPlanes.Length; i++)
@@ -116,7 +116,7 @@ namespace WaterSystem.Rendering
                     cullingPlanes[i].normal.z,
                     cullingPlanes[i].distance);
             }
-            
+
             // Base tiles
             var baseLayout = new BaseLayout()
             {
@@ -142,7 +142,7 @@ namespace WaterSystem.Rendering
                 {
                     //Profiler.BeginSample("Subdivide");
                     baseTilesB.Clear();
-                    
+
                     var subdivideJob = new SubdivideTiles()
                     {
                         BaseTiles = baseTilesA,
@@ -162,10 +162,10 @@ namespace WaterSystem.Rendering
                     {
                         return;
                     }
-                    
+
                     // job count for next round
                     //TileCount[s + 1] = baseTilesB.Length;
-                    
+
                     // swap buffer
                     (baseTilesA, baseTilesB) = (baseTilesB, baseTilesA);
                     baseTilesB.Clear();
@@ -173,7 +173,7 @@ namespace WaterSystem.Rendering
 
                     //Profiler.EndSample();
                 }
-                
+
                 // Matrix mul
                 var matrixJob = new MatrixJob()
                 {
@@ -205,7 +205,7 @@ namespace WaterSystem.Rendering
         {
             // Rendering
             //Profiler.BeginSample("Drawing");
-            
+
             var toDraw = count;
             var batchStart = 0;
             var batchSize = TileTempMatrices.Length;
@@ -217,9 +217,9 @@ namespace WaterSystem.Rendering
                 var arr = tiles.GetSubArray(batchStart, TileTempMatrices.Length).Reinterpret<Matrix4x4>();
                 arr.CopyTo(TileTempMatrices);
                 //Profiler.EndSample();
-                
+
                 //Profiler.BeginSample("drawMeshInstanced");
-                
+
                 Graphics.DrawMeshInstanced(
                     WaterProjectSettings.Instance.resources.waterTile,
                     0,
@@ -240,21 +240,21 @@ namespace WaterSystem.Rendering
 
             //Profiler.EndSample();
         }
-        
+
         public void Cleanup()
         {
-            if(FrustumPlanes.IsCreated)
+            if (FrustumPlanes.IsCreated)
                 FrustumPlanes.Dispose();
-            if(baseTilesA.IsCreated)
+            if (baseTilesA.IsCreated)
                 baseTilesA.Dispose();
-            if(baseTilesB.IsCreated)
+            if (baseTilesB.IsCreated)
                 baseTilesB.Dispose();
-            
-            if(WaterTiles.IsCreated)
+
+            if (WaterTiles.IsCreated)
                 WaterTiles.Dispose();
-            if(TileMatrices.IsCreated)
+            if (TileMatrices.IsCreated)
                 TileMatrices.Dispose();
-            if(TileCount.IsCreated)
+            if (TileCount.IsCreated)
                 TileCount.Dispose();
         }
 
@@ -304,7 +304,7 @@ namespace WaterSystem.Rendering
                             tile.Matrix.c3.x = xPos;
                             tile.Matrix.c3.z = zPos;
                             if (SurfaceSize.y <= float.Epsilon && math.distance(tile.Matrix.c3.xz, float2.zero) > xSize * 0.5f) continue;
-                            
+
                             tile.Matrix.c0.x = tile.Matrix.c1.y = tile.Matrix.c2.z = TileSize; // scale
                             //Output[z + (x * zCount)] = tile;
                             Output.AddNoResize(tile);
@@ -321,12 +321,12 @@ namespace WaterSystem.Rendering
             [ReadOnly] public NativeList<WaterTile> BaseTiles;
             [ReadOnly] public NativeArray<float4> CullingPlanes;
             [ReadOnly] public WaterMeshSettings Settings;
-            
+
             [ReadOnly] public float4x4 TransformationMatrix;
             [ReadOnly] public float3 CameraPosition;
             [ReadOnly] public float CameraFov;
             [ReadOnly] public int IterationLength;
-            
+
             public NativeList<WaterTile>.ParallelWriter Tiles;
             public NativeList<WaterTile>.ParallelWriter OverflowTiles;
 
@@ -339,7 +339,7 @@ namespace WaterSystem.Rendering
             {
                 var transformedTile = TransformMatrix(tile.Matrix, TransformationMatrix);
                 if (!InFrustum(tile.Matrix, transformedTile, CullingPlanes, Settings.maxWaveHeight)) return;
-                
+
                 // Check if tile has hit max iteration;
                 if (tile.Division > IterationLength)
                 {
@@ -347,10 +347,10 @@ namespace WaterSystem.Rendering
                     OverflowTiles.AddNoResize(tile);
                     return;
                 }
-                
+
                 // Check if tile needs further division
                 var divide = Divide(tile.Matrix.c3.xyz, tile.Matrix.c0.x, CameraPosition, CameraFov);
-                if(divide > Settings.density && tile.Division < Settings.maxDivisions)
+                if (divide > Settings.density && tile.Division < Settings.maxDivisions)
                 {
                     Subdivide(tile);
                 }
@@ -390,7 +390,7 @@ namespace WaterSystem.Rendering
                 return Settings.baseTileSize / ratio;
             }
         }
-        
+
         [BurstCompile]
         private struct MatrixJob : IJobParallelFor
         {
@@ -403,7 +403,7 @@ namespace WaterSystem.Rendering
             }
         }
 
-        
+
         #region JobHelpers
 
         private static bool InFrustum(float4x4 matrix, float4x4 transformed, NativeArray<float4> planes, float buffer)
@@ -415,8 +415,8 @@ namespace WaterSystem.Rendering
             //var size = math.mul(matrix * float4.)
             var bbMin = transformed.c3.xyz - size * 0.5f - buffer;
             var bbMax = transformed.c3.xyz + size * 0.5f + buffer;
-                
-            for (var i = 0; i < 6; i++) 
+
+            for (var i = 0; i < 6; i++)
             {
                 float3 pos;
                 pos.x = planes[i].x > 0 ? bbMax.x : bbMin.x;
@@ -427,15 +427,15 @@ namespace WaterSystem.Rendering
             }
             return true;
         }
-        
+
         private static float DistanceToPlane(float4 plane, float3 position)
         {
             return math.dot(plane.xyz, position) + plane.w;
         }
-        
+
         private static float Divide(float3 point, float size, float3 cameraPosition, float cameraFov)
         {
-            var dist = math.distance(point,cameraPosition);
+            var dist = math.distance(point, cameraPosition);
             var angle = math.degrees(math.atan(size / dist));
             var value = angle / cameraFov;
             return value;
@@ -448,7 +448,7 @@ namespace WaterSystem.Rendering
 
         #endregion
 
-        
+
         public struct WaterTile
         {
             public float4x4 Matrix;
@@ -462,9 +462,9 @@ namespace WaterSystem.Rendering
             [Range(1, 50)] public int baseTileSize;
             public bool infinite;
             public float2 size;
-            
+
             [Range(0.05f, 1f)] public float density;
-            
+
             // water info
             public float maxWaveHeight;
         }
