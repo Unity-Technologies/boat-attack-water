@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
@@ -226,6 +227,7 @@ namespace WaterSystem.Settings
         {
             if(WaterProjectSettings.Instance != null) return WaterProjectSettings.Instance;
             var settings = UnityEngine.Resources.Load<WaterProjectSettings>(SettingsConsts.AssetString);
+            settings = AssetDatabase.FindAssets($"t:{nameof(WaterProjectSettings)}").Select(s => AssetDatabase.LoadAssetAtPath<WaterProjectSettings>(AssetDatabase.GUIDToAssetPath(s))).FirstOrDefault();
             if (settings != null) return settings;
             
             Debug.Log("Making new WaterProjectSettings asset");
