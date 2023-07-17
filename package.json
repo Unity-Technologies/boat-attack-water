@@ -1,7 +1,7 @@
 {
   "name": "com.unity.urp-water-system",
   "description": "A water system for use in URP, developed for the Boat Attack demo project. Forked by OndrejPetrzilka.",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "unity": "2021.3",
   "displayName": "URP Water System",
   "dependencies": {
