@@ -19,11 +19,11 @@
 			HLSLPROGRAM
 			#pragma prefer_hlslcc gles
 			/////////////////SHADER FEATURES//////////////////
-			#pragma multi_compile_fragment _REFLECTION_CUBEMAP _REFLECTION_PROBES _REFLECTION_PLANARREFLECTION _REFLECTION_SSR
+			#pragma multi_compile_fragment _REFLECTION_CUBEMAP _REFLECTION_PROBE _REFLECTION_PLANARREFLECTION _REFLECTION_SSR
 			#pragma shader_feature_local _STATIC_SHADER
 			#pragma multi_compile_fragment _ BOAT_ATTACK_WATER_DEBUG_DISPLAY
 
-			#pragma multi_compile_fragment _SSR_SAMPLES_LOW _SSR_SAMPLES_MEDIUM _SSR_SAMPLES_HIGH 
+			#pragma multi_compile_fragment _ _SSR_SAMPLES_LOW _SSR_SAMPLES_MEDIUM _SSR_SAMPLES_HIGH 
 			
             // -------------------------------------
             // Lightweight Pipeline keywords
@@ -58,7 +58,7 @@
 				output.uv.xy = input.texcoord;
 
 				float3 cameraOffset = GetCameraPositionWS();
-            	input.positionOS.xz *= _BoatAttack_Water_DistanceBlend; // scale range to blend distance
+            	input.positionOS.xz *= _BoatAttack_Water_DistanceBlend * 0.45; // scale range to blend distance
             	input.positionOS.y *= cameraOffset.y - _WaveHeight * 2; // scale height to camera
 				input.positionOS.y -= cameraOffset.y - _WaveHeight * 2;
 

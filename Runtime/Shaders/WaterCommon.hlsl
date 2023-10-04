@@ -173,7 +173,7 @@ float4 AdditionalData(float3 postionWS, WaveStruct wave)
     float3 viewPos = TransformWorldToView(postionWS);
 	data.x = length(viewPos / viewPos.z);// distance to surface
     data.y = length(GetCameraPositionWS().xyz - postionWS); // local position in camera space(view direction WS)
-	data.z = wave.position.y / _MaxWaveHeight * 0.5 + 0.5; // encode the normalized wave height into additional data
+	data.z = wave.position.y / max(_MaxWaveHeight, 0.5f) * 0.5 + 0.5; // encode the normalized wave height into additional data
 	data.w = wave.foam;// wave.position.x + wave.position.z;
 	return data;
 }
@@ -249,12 +249,11 @@ Varyings WaveVertexOperations(Varyings input)
 	screenUV.xyz /= screenUV.w;
 
     // shallows mask
-    half waterDepth = WaterBufferBVert(screenUV).b;// WaterTextureDepthVert(screenUV);
-    //input.positionWS.y += pow(saturate((-waterDepth + 1.5) * 0.4), 2);
+    half waterDepth = 1-WaterBufferBVert(screenUV).b;
 
 	//Gerstner here
 	half depthWaveRamp = SAMPLE_TEXTURE2D_LOD(_BoatAttack_RampTexture, sampler_BoatAttack_Linear_Clamp_RampTexture,  waterDepth, 0).b;
-	half opacity = depthWaveRamp;// saturate(waterDepth * 0.1 + 0.05);
+	half opacity = depthWaveRamp;
 	
 	WaveStruct wave;
 	SampleWaves(input.positionWS, opacity, wave);
@@ -267,7 +266,7 @@ Varyings WaveVertexOperations(Varyings input)
 
     // Dynamic displacement
 	half4 waterFX = WaterBufferAVert(screenUV.xy);
-	input.positionWS.y += waterFX.w * 2 - 1;
+	//input.positionWS.y += waterFX.w * 2 - 1;
 
 	// After waves
 	input.positionCS = TransformWorldToHClip(input.positionWS);
@@ -374,14 +373,18 @@ half3 WaterShading(WaterInputData input, WaterSurfaceData surfaceData, float4 ad
     directLighting += saturate(pow(dot(input.viewDirectionWS.xyz, -mainLight.direction) * additionalData.z, 3)) * Absorption(1) * mainLight.color * 2;
 	half3 sss = directLighting * volumeShadow + GI;
 	sss *= Scattering(input.depth.x);
+
+	// Specular
+	half NdotL = saturate(dot(input.normalWS, mainLight.direction));
+	half3 radiance = mainLight.color * (mainLight.distanceAttenuation * NdotL) * mainLight.shadowAttenuation;
 	
     BRDFData brdfData;
     half alpha = 1;
 	half smoothness = 0.9;// 1-saturate(fresnelTerm);
-    InitializeBRDFData(half3(0, 0, 0), 0, half3(1, 1, 1), smoothness, alpha, brdfData);
-	half3 spec = DirectBRDFSpecular(brdfData, input.normalWS, mainLight.direction, input.viewDirectionWS);
-	spec *= mainLight.color * mainLight.shadowAttenuation * length(input.normalWS.xz);
-	spec *= 1 - saturate(surfaceData.foamMask * 4);
+    InitializeBRDFData(half3(0.0, 0.0, 0.0), 0, half3(1, 1, 1), smoothness, alpha, brdfData);
+	half3 spec = DirectBRDFSpecular(brdfData, input.normalWS, mainLight.direction, input.viewDirectionWS) * brdfData.specular;
+	spec *= radiance;// * length(input.normalWS.xz);
+	spec *= 1 - saturate(surfaceData.foamMask * 2);
 
 	// Foam
 	surfaceData.foam *= (GI + directLighting * mainLight.shadowAttenuation) * 3 * saturate(surfaceData.foamMask);
@@ -398,10 +401,7 @@ half3 WaterShading(WaterInputData input, WaterSurfaceData surfaceData, float4 ad
 	half3 compB = compA * saturate(1-surfaceData.foamMask) + surfaceData.foam;
 	// final
 	half3 output = MixFog(compB, input.fogCoord);
-	
-	half2 a = frac(input.detailUV.xy);// * input.detailUV.z;
-	half2 b = frac(input.detailUV.zw);// * 1-input.detailUV.z;
-		
+			
 	// Debug block
 	#if defined(BOAT_ATTACK_WATER_DEBUG_DISPLAY)
 	[branch] switch(_BoatAttack_Water_DebugPass)
@@ -411,30 +411,34 @@ half3 WaterShading(WaterInputData input, WaterSurfaceData surfaceData, float4 ad
 		case 1: // normalWS
 			return saturate(half4(input.normalWS.x, 0, input.normalWS.z, 1) * 10);
 		case 2: // Reflection
-			return half4(reflection, 1);
+			return reflection;
 		case 3: // Refraction
-			return half4(refraction, 1);
+			return refraction;
 		case 4: // Specular
-			return half4(spec, 1);
+			return spec;
 		case 5: // SSS
-			return half4(sss, 1);
-		case 6: // Foam
-			return half4(surfaceData.foam.xxx, 1) * surfaceData.foamMask;
-		case 7: // Foam Mask
-			return half4(surfaceData.foamMask.xxx, 1);
-		case 8: // buffer A
-			return input.waterBufferA;
-		case 9: // buffer B
-			return input.waterBufferB;
-		case 10: // eye depth
+			return sss;
+		case 6: // Shadow
+			return volumeShadow.xxx;
+		case 7: // Foam
+			return surfaceData.foam.xxx * surfaceData.foamMask;
+		case 8: // Foam Mask
+			return surfaceData.foamMask.xxx;
+		case 9: // buffer A
+			return WaterBufferA(screenUV);
+			//return input.waterBufferA.zzz;
+		case 10: // buffer B
+			return WaterBufferB(screenUV);
+			//return input.waterBufferB.zzz;
+		case 11: // eye depth
 			float d = input.depth;
-			return half4(frac(d), frac(d * 0.1), 0, 1);
-		case 11: // water depth texture
+			return half3(frac(d), frac(d * 0.1), 0);
+		case 12: // water depth texture
 			float wd = WaterTextureDepth(screenUV);
-			return half4(frac(wd), frac(wd * 0.1), 0, 1);
-		case 12: // fresnel
-			return fresnelTerm;
-		case 13: // mesh debug
+			return half3(frac(wd), frac(wd * 0.1), 0);
+		case 13: // fresnel
+			return fresnelTerm.xxx;
+		case 14: // mesh debug
 			return MeshDebugView(input.positionWS);
 	}
 	#endif
@@ -448,7 +452,7 @@ half WaterNearFade(Varyings input, WaterInputData inputData)
     float3 camPos = GetCameraPositionWS();
     camPos.y = 0;
 	half fade = saturate(inputData.depth.y * 20);
-	half distanceFade = 1 - saturate((distance(input.positionWS, camPos) - _BoatAttack_Water_DistanceBlend) * 0.05);
+	half distanceFade = 1 - saturate((distance(input.positionWS.xz, camPos.xz) - (_BoatAttack_Water_DistanceBlend * 0.45f)) * 0.05);
     return min(fade, distanceFade);
 }
 

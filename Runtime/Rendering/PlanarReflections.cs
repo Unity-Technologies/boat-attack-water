@@ -68,7 +68,7 @@ namespace WaterSystem.Rendering
             }
         }
 
-        private static PlanarReflectionSettings m_settings => WaterProjectSettings.QualitySettings.reflectionSettings.planarSettings;
+        private static PlanarReflectionSettings m_settings => ProjectSettings.Quality.reflectionSettings.planarSettings;
 
         public static float m_planeOffset;
 
@@ -121,10 +121,10 @@ namespace WaterSystem.Rendering
             }
         }
 
-        private static void UpdateReflectionCamera(Camera realCamera, Transform transform)
+        private static void UpdateReflectionCamera(Camera realCamera)
         {
             if (_reflectionObjects[realCamera].Camera == null)
-                _reflectionObjects[realCamera].Camera = CreateMirrorObjects(transform);
+                _reflectionObjects[realCamera].Camera = CreateMirrorObjects();
 
             // find out the reflection plane: position and normal in world space
             Vector3 pos = Vector3.zero;
@@ -228,7 +228,7 @@ namespace WaterSystem.Rendering
             return new Vector4(cameraNormal.x, cameraNormal.y, cameraNormal.z, -Vector3.Dot(cameraPosition, cameraNormal));
         }
 
-        private static Camera CreateMirrorObjects(Transform transform)
+        private static Camera CreateMirrorObjects()
         {
             var go = new GameObject("Planar Reflections",typeof(Camera));
             var cameraData = go.AddComponent(typeof(UniversalAdditionalCameraData)) as UniversalAdditionalCameraData;
@@ -237,9 +237,7 @@ namespace WaterSystem.Rendering
             cameraData.requiresDepthOption = CameraOverrideOption.Off;
             //cameraData.SetRenderer(1); TODO - specify renderer from settings
 
-            var t = transform;
             var reflectionCamera = go.GetComponent<Camera>();
-            reflectionCamera.transform.SetPositionAndRotation(t.position, t.rotation);
             reflectionCamera.depth = -10;
             reflectionCamera.enabled = false;
             go.hideFlags = HideFlags.HideAndDontSave;
@@ -261,13 +259,13 @@ namespace WaterSystem.Rendering
             objects.Camera.targetTexture =  objects.Texture;
         }
 
-        private static void UpdateReflectionObjects(Camera camera, Transform transform)
+        private static void UpdateReflectionObjects(Camera camera)
         {
             if (!_reflectionObjects.ContainsKey(camera))
             {
                 _reflectionObjects.Add(camera, new PlanarReflectionObjects());
             }
-            UpdateReflectionCamera(camera, transform);
+            UpdateReflectionCamera(camera);
             PlanarReflectionTexture(_reflectionObjects[camera], ReflectionResolution(camera, UniversalRenderPipeline.asset.renderScale));
         }
 
@@ -290,7 +288,7 @@ namespace WaterSystem.Rendering
             return new int2(x, y);
         }
 
-        public static void Execute(ScriptableRenderContext context, Camera camera, Transform transform)
+        public static void Execute(ScriptableRenderContext context, Camera camera)
         {
             // we dont want to render planar reflections in reflections or previews
             if (camera.cameraType == CameraType.Reflection || camera.cameraType == CameraType.Preview)
@@ -299,7 +297,7 @@ namespace WaterSystem.Rendering
             if (m_settings == null)
                 return;
             
-            UpdateReflectionObjects(camera, transform);
+            UpdateReflectionObjects(camera);
 
             var data = new PlanarReflectionSettingData(); // save quality settings and lower them for the planar reflections
             data.Set(!m_settings.m_ObliqueProjection); // set quality settings

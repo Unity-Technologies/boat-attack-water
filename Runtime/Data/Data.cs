@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using UnityEngine;
 using Unity.Mathematics;
 using UnityEngine.Rendering;
@@ -14,85 +15,7 @@ namespace WaterSystem
         private static readonly string KeyRefProbe = "_REFLECTION_PROBES";
         private static readonly string KeyRefPlanar = "_REFLECTION_PLANARREFLECTION";
         private static readonly string KeyRefSSR = "_REFLECTION_SSR";
-        
-        /// <summary>
-        /// This class stores the settings for a water system
-        /// </summary>
-        [System.Serializable]
-        public class OceanSettings
-        {
-            // General
-            public bool isInfinite; // Is the water infinite (shader incomplete)
-            public float distanceBlend = 100.0f;
-            public int randomSeed = 3234;
-            
-            // Cubemap settings
-            public Cubemap cubemapRefType;
-            
-            // Visual Surface
-            public float _waterMaxVisibility = 5.0f;
-            public Color _absorptionColor = new Color(0.2f, 0.6f, 0.8f);
-            public Color _scatteringColor = new Color(0.0f, 0.085f, 0.1f);
-            
-            // Waves
-            public List<Wave> _waves = new List<Wave>();
-            public bool _customWaves;
-            public BasicWaves _basicWaveSettings = new BasicWaves(0.5f, 45.0f, 5.0f);
-            public AnimationCurve _waveFoamProfile = AnimationCurve.Linear(0.02f, 0f, 0.98f, 1f);
-            public AnimationCurve _waveDepthProfile = AnimationCurve.Linear(0.0f, 1f, 0.98f, 0f);
-            
-            // Micro(surface) Waves
-            public float _microWaveIntensity = 0.25f;
-            
-            // Shore
-            public float _foamIntensity = 0.5f;
-            public AnimationCurve _shoreFoamProfile = AnimationCurve.Linear(0.02f, 0f, 0.98f, 1f);
-        }
-        
-        /// <summary>
-        /// Basic wave type, this is for the base Gerstner wave values
-        /// it will drive automatic generation of n amount of waves
-        /// </summary>
-        [Serializable]
-        public class BasicWaves
-        {
-            [Range(3, 12)]
-            public int waveCount = 6;
-            public float amplitude;
-            public float direction;
-            public float wavelength;
 
-            public BasicWaves(float amp, float dir, float len)
-            {
-                waveCount = 6;
-                amplitude = amp;
-                direction = dir;
-                wavelength = len;
-            }
-        }
-        
-        /// <summary>
-        /// Class to describe a single Gerstner Wave
-        /// </summary>
-        [Serializable]
-        public struct Wave
-        {
-            public float amplitude; // height of the wave in units(m)
-            public float direction; // direction the wave travels in degrees from Z+
-            public float wavelength; // distance between crest>crest
-            public float2 origin; // Omi directional point of origin
-            public float onmiDir; // Is omni?
-
-            public Wave(float amp, float dir, float length, float2 org, bool omni)
-            {
-                amplitude = amp;
-                direction = dir;
-                wavelength = length;
-                origin = org;
-                onmiDir = omni ? 1 : 0;
-            }
-        }
-        
         /// <summary>
         /// The type of geometry, either vertex offset or tessellation
         /// </summary>
@@ -102,7 +25,18 @@ namespace WaterSystem
             VertexOffset,
             //Tesselation,
         }
-
+        
+        /// <summary>
+        /// Geometry settings
+        /// </summary>
+        [Serializable]
+        public class GeometrySettings
+        {
+            public GeometryType geometryType = GeometryType.VertexOffset;
+            public float density = 1;
+            public int maxDivisions = 5;
+        }
+        
         /// <summary>
         /// Refleciton settings, this also contains a planar reflection copy
         /// </summary>
@@ -110,7 +44,9 @@ namespace WaterSystem
         public class ReflectionSettings
         {
             public Type reflectionType = Type.PlanarReflection; // How the reflections are generated
+            public Cubemap fallbackCubemap;
             public PlanarReflections.PlanarReflectionSettings planarSettings = new(); // Planar reflection settings
+            public SsrSettings ssrSettings = new(); // SSR settings
 
             /// <summary>
             /// The type of reflection source, custom cubemap, closest refelction probe, planar reflection
@@ -136,13 +72,19 @@ namespace WaterSystem
             public float stepSize = 0.1f;
             [Range(0.25f, 3f)]
             public float thickness = 2f;
-		
+
             [Serializable]
             public enum Steps
             {
                 Low = 8,
                 Medium = 16,
                 High = 32,
+            }
+
+            // method to get the SSR settings packed into a float4
+            public float3 GetPacked()
+            {
+                return new float3(stepSize, thickness, 0);
             }
         }
 
@@ -207,6 +149,51 @@ namespace WaterSystem
             }
         }
         
+        /// <summary>
+        /// This is the struct that will be used to store the IWaterQuery sample and the GUID of the object it belongs to
+        /// </summary>
+        public struct WaterSample
+        {
+            /// <summary>
+            /// Data1.xyz = position, Data1.w = WaterBodyID, recommended to use methods to access this data.
+            /// </summary>
+            private float4 Data1;
+            /// <summary>
+            /// InstanceID of the IWaterQuery object this sample belongs to
+            /// </summary>
+            public int InstanceID;
+            
+            /// <summary>
+            /// Position of the sample in world space
+            /// </summary>
+            public float3 Position
+            {
+                get => Data1.xyz;
+                set => Data1.xyz = value;
+            }
+            
+            /// <summary>
+            /// WaterBodyID represents the InstanceID of the water body this sample is within
+            /// </summary>
+            public int WaterBodyID
+            {
+                get => (int)Data1.w;
+                set => Data1.w = value;
+            }
+        }
+        
+        /// <summary>
+        /// Struct to describe Water Surface
+        /// </summary>
+        public struct WaterSurface
+        {
+            public float3 Position;
+            public uint GUID;
+            public float3 Normal;
+            public float Depth;
+            public float2 Current;
+        }
+
         public static string GetReflectionKeyword(ReflectionSettings.Type type)
         {
             switch (type)
@@ -222,6 +209,26 @@ namespace WaterSystem
                 default:
                     throw new ArgumentOutOfRangeException(nameof(type), type, null);
             }
+        }
+        
+        [Serializable]
+        public enum DebugShading
+        {
+            none,
+            normalWS,
+            Reflection,
+            Refraction,
+            Specular,
+            SSS,
+            Shadow,
+            Foam,
+            FoamMask,
+            WaterBufferA,
+            WaterBufferB,
+            Depth,
+            WaterDepth,
+            Fresnel,
+            Mesh,
         }
     }
 }

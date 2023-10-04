@@ -24,6 +24,9 @@
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
 
+            #define WATER_HEIGHT _WaterBodyToWorld._24
+            #define WATER_POSITION _WaterBodyToWorld._14_24_34
+            
             #pragma multi_compile _ _DEBUG
             #pragma multi_compile _ _STATIC_SHADER
 
@@ -47,10 +50,10 @@
             TEXTURE2D(_AbsorptionScatteringRamp); SAMPLER(sampler_AbsorptionScatteringRamp);
 
             half _Size;
-            half _WaterLevel;
             half _MaxDepth;
             half _BlendDistance;
             half4x4 _MainLightDir;
+            half4x4 _WaterBodyToWorld;
 
             // World Posision reconstriction
             float3 ReconstructWorldPos(half2 screenPos, float depth)
@@ -96,7 +99,10 @@
                 Light MainLight = GetMainLight();
                 
                 // Reconstruct Position of objects in depth map
-                float4 WorldPos = ReconstructWorldPos(screenPos.xy, depth).xyzz;
+                float4 WorldPos = float4(ReconstructWorldPos(screenPos.xy, depth).xyz, 1.0);
+                WorldPos.xz += GetCameraPositionWS().xz;
+                WorldPos.xyz -= WATER_POSITION;
+                WorldPos = mul(WorldPos, _WaterBodyToWorld);
                 
                 // Get light direction and use it to rotate the world position
                 float3 LightUVs = mul(WorldPos, _MainLightDir).xyz;
@@ -113,14 +119,14 @@
 
                 float2 causticUV = CausticUVs(LightUVs.xy, waveOffset);
 
-                float LodLevel = abs(WorldPos.y - _WaterLevel) * 4 / _BlendDistance;
+                float LodLevel = abs(WorldPos.y - WATER_HEIGHT) * 4 / _BlendDistance;
                 float4 A = SAMPLE_TEXTURE2D_LOD(_CausticMap, sampler_CausticMap, causticUV + time, LodLevel);
                 float4 B = SAMPLE_TEXTURE2D_LOD(_CausticMap, sampler_CausticMap, causticUV * 2.0 - time, LodLevel);
                 
                 float CausticsDriver = (A.z * B.z) * 10 + A.z + B.z;
                 
                 // Mask caustics from above water and fade below
-                half level = _WaterLevel - 0.25;
+                half level = -0.25;
                 half upperMask = saturate(-WorldPos.y + level);
                 half lowerMask = 1 - saturate(LodLevel * 0.125);
                 CausticsDriver *= min(upperMask, lowerMask);

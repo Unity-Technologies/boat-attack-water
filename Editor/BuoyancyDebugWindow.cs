@@ -1,6 +1,8 @@
 using UnityEditor;
 using UnityEngine;
 using WaterSystem;
+using WaterSystem.Settings;
+using WaterSystem.Physics;
 
 public class BuoyancyDebugWindow : EditorWindow
 {
@@ -14,25 +16,29 @@ public class BuoyancyDebugWindow : EditorWindow
         window.Show();
     }
 
+    
     private void OnGUI()
     {
         EditorGUILayout.LabelField("URP Water System : Buoyancy Debug", EditorStyles.largeLabel);
 
+        var unusedCount = ProjectSettings.Quality.BuoyancySamples - WaterPhysics.ActiveSampleCount;
         EditorGUILayout.HelpBox(
-            $"Total Objects:{GerstnerWavesJobs.Registry.Count} " +
-            $"Sample Point Count:{GerstnerWavesJobs._positionCount}", 
+            $"Total Objects:{BaseSystem.GetInstance<WaterPhysics>().QueryRegistry.Count}   " +
+            $"Sample Point Count:{WaterPhysics.ActiveSampleCount}   " +
+            $"Unused:{unusedCount}", 
             MessageType.None);
 
         EditorGUILayout.BeginVertical(EditorStyles.helpBox);
         _scrollPosition = EditorGUILayout.BeginScrollView(_scrollPosition);
         var count = 0;
-        foreach (var registryEntry in GerstnerWavesJobs.Registry)
+        foreach (var registryEntry in (BaseSystem.GetInstance<WaterPhysics>().QueryRegistry))
         {
-            var obj = EditorUtility.InstanceIDToObject(registryEntry.Key);
+            if(registryEntry.Key == null) continue;
+            var obj = registryEntry.Key;
             var box = EditorGUILayout.BeginHorizontal();
             if(count % 2 == 0)
                 GUI.Box(box, GUIContent.none);
-            EditorGUILayout.LabelField($"{obj.name}", $"GUID:{registryEntry.Key}");
+            EditorGUILayout.LabelField($"{obj.name}", $"GUID:{registryEntry.Key.GetInstanceID()}");
             EditorGUILayout.LabelField($"indicies:{registryEntry.Value.x}-{registryEntry.Value.y}",
                 $"size:{registryEntry.Value.y - registryEntry.Value.x}");
             if (GUILayout.Button("Ping Object"))

@@ -8,6 +8,7 @@
     {
         Tags { "RenderType"="Transparent" "Queue"="Transparent-100" "RenderPipeline" = "UniversalPipeline" }
         ZWrite On
+        Cull off
 
         Blend SrcAlpha OneMinusSrcAlpha // Traditional transparency
 
@@ -19,13 +20,13 @@
             HLSLPROGRAM
             #pragma prefer_hlslcc gles
             /////////////////SHADER FEATURES//////////////////
-            #pragma multi_compile_fragment _REFLECTION_CUBEMAP _REFLECTION_PROBES _REFLECTION_PLANARREFLECTION _REFLECTION_SSR
+            #pragma multi_compile_fragment _REFLECTION_CUBEMAP _REFLECTION_PROBE _REFLECTION_PLANARREFLECTION _REFLECTION_SSR
             #pragma multi_compile_fragment _ _DISPERSION
             #pragma multi_compile _ USE_STRUCTURED_BUFFER
             #pragma shader_feature_local _STATIC_SHADER
             #pragma multi_compile _ BOAT_ATTACK_WATER_DEBUG_DISPLAY
 
-            #pragma multi_compile_fragment _SSR_SAMPLES_LOW _SSR_SAMPLES_MEDIUM _SSR_SAMPLES_HIGH 
+            #pragma multi_compile_fragment _ _SSR_SAMPLES_LOW _SSR_SAMPLES_MEDIUM _SSR_SAMPLES_HIGH 
             #pragma multi_compile_fragment _ _SHADOW_SAMPLES_LOW _SHADOW_SAMPLES_MEDIUM _SHADOW_SAMPLES_HIGH 
 
             // Universal Pipeline keywords/
@@ -35,8 +36,12 @@
             #pragma multi_compile_fragment _ _REFLECTION_PROBE_BLENDING
             #pragma multi_compile_fragment _ _SHADOWS_SOFT
             #pragma multi_compile_fragment _ _LIGHT_COOKIES
-            #pragma multi_compile _ _FORWARD_PLUS
             #pragma multi_compile _ SHADOWS_SHADOWMASK
+            
+            #if UNITY_VERSION >= 202330
+            #include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
+            #pragma multi_compile _ _FORWARD_PLUS
+            #endif
 
             //--------------------------------------
             // GPU Instancing

@@ -1,6 +1,10 @@
 using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Reflection;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace WaterSystem.Settings
 {
@@ -10,36 +14,194 @@ namespace WaterSystem.Settings
     [Serializable]
     public class Resources
     {
-        [Tooltip("Texture used for the foam.")]
-        public Texture2D foamMap; // a default foam texture map
-        public Texture2D surfaceMap; // a default normal/caustic map
-        public Texture2D detailNormalMap; // default normal map
-        public Texture2D waterFX; // texture with correct values for default WaterFX
-        public Texture2D ditherNoise; // blue noise normal map
-        public Mesh infiniteWaterMesh;
-        public Mesh waterTile;
-        public Shader waterShader;
-        public Shader causticShader;
-        public Shader infiniteWaterShader;
+        public const string BasePath = "Packages/com.unity.urp-water-system/Runtime/";
         
+        [Tooltip("Texture used for the foam.")]
+        [SerializeField] private Texture2D foamMap; // a default foam texture map
+        [SerializeField] private Texture2D surfaceMap; // a default normal/caustic map
+        [SerializeField] private Texture2D detailNormalMap; // default normal map
+        [SerializeField] private Texture2D waterFX; // texture with correct values for default WaterFX
+        [SerializeField] private Texture2D ditherNoise; // blue noise normal map
+        [SerializeField] private Mesh infiniteWaterMesh;
+        [SerializeField] private Mesh waterTile; 
+        [SerializeField] private Shader waterShader;
+        [SerializeField] private Shader causticShader;
+        [SerializeField] private Shader infiniteWaterShader;
+        [SerializeField] private Shader waterDepthShader;
+        
+        public T GetResourceIfNull<T>(ref T resource, BuiltinAssets path) where T : UnityEngine.Object
+        {
+            if (resource == null)
+            {
+                resource = GetResource<T>(path);
+            }
+            return resource;
+        }
+        
+        public Texture2D FoamMap
+        {
+            get => GetResourceIfNull(ref foamMap, BuiltinAssets.FoamMap);
+            set => foamMap = value;
+        }
+        
+        public Texture2D SurfaceMap
+        {
+            get => GetResourceIfNull(ref surfaceMap, BuiltinAssets.SurfaceMap);
+            set => surfaceMap = value;
+        }
+
+        public Texture2D DetailNormalMap
+        {
+            get => GetResourceIfNull(ref detailNormalMap, BuiltinAssets.DetailNormalMap);
+            set => detailNormalMap = value;
+        }
+
+        public Texture2D WaterFX
+        {
+            get => GetResourceIfNull(ref waterFX, BuiltinAssets.WaterFX);
+            set => waterFX = value;
+        }
+
+        public Texture2D DitherNoise
+        {
+            get => GetResourceIfNull(ref ditherNoise, BuiltinAssets.DitherNoise);
+            set => ditherNoise = value;
+        }
+        
+        public Mesh WaterTile
+        {
+            get => GetResourceIfNull(ref waterTile, BuiltinAssets.WaterTile);
+            set => waterTile = value;
+        }
+
+        public Mesh InfiniteWaterMesh
+        {
+            get => GetResourceIfNull(ref infiniteWaterMesh, BuiltinAssets.InfiniteWaterMesh);
+            set => infiniteWaterMesh = value;
+        }
+
+        public Shader WaterShader
+        {
+            get => GetResourceIfNull(ref waterShader, BuiltinAssets.WaterShader);
+            set => waterShader = value;
+        }
+
+        public Shader CausticShader
+        {
+            get => GetResourceIfNull(ref causticShader, BuiltinAssets.CausticShader);
+            set => causticShader = value;
+        }
+
+        public Shader InfiniteWaterShader
+        {
+            get => GetResourceIfNull(ref infiniteWaterShader, BuiltinAssets.InfiniteWaterShader);
+            set => infiniteWaterShader = value;
+        }
+        
+        public Shader WaterDepthShader
+        {
+            get => GetResourceIfNull(ref waterDepthShader, BuiltinAssets.WaterDepthShader);
+            set => waterDepthShader = value;
+        }
+
+#if UNITY_EDITOR
         public void Init()
         {
-#if UNITY_EDITOR
-            const string basePath = "Packages/com.unity.urp-water-system/Runtime/";
+
             // Textures
-            foamMap = AssetDatabase.LoadAssetAtPath<Texture2D>(basePath + "Textures/WaterFoam.png");
-            detailNormalMap = AssetDatabase.LoadAssetAtPath<Texture2D>(basePath + "Textures/WaterNormals.tif");
-            surfaceMap = AssetDatabase.LoadAssetAtPath<Texture2D>(basePath + "Textures/WaterSurface_single.tif");
-            waterFX = AssetDatabase.LoadAssetAtPath<Texture2D>(basePath + "Textures/DefaultWaterFX.tif");
-            ditherNoise = AssetDatabase.LoadAssetAtPath<Texture2D>(basePath + "Textures/normalNoise.png");
-            // Materials
-            // Meshes
-            infiniteWaterMesh = AssetDatabase.LoadAssetAtPath<Mesh>(basePath + "Meshes/InfiniteSea.fbx");
-            waterTile = AssetDatabase.LoadAssetAtPath<Mesh>(basePath + "Meshes/WaterTile.fbx");
-            // Shaders
-            waterShader = Shader.Find("Boat Attack/Water");
-            causticShader = Shader.Find("Boat Attack/Water/Caustics");
-            infiniteWaterShader = Shader.Find("Boat Attack/Water/InfiniteWater");
+            FoamMap = GetResource<Texture2D>(BuiltinAssets.FoamMap);
+        }
+#endif
+        
+        
+
+        [NonSerialized] public string ValidationString;
+        
+        public bool ValidateResources()
+        {
+            bool valid = true;
+            ValidationString = "";
+            
+            // loop through all the properties, including private ones and check if they are null via refleciton, adding a line to the logString for each
+            foreach (var propertyInfo in GetType().GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
+            {
+                if (propertyInfo.GetValue(this) == null)
+                {
+                    valid = false;
+                    ValidationString += $"Resource {propertyInfo.Name} is null\n";
+                }
+                else
+                {
+                    ValidationString += $"Resource {propertyInfo.Name} is valid\n";
+                }
+            }
+            
+            if(valid)
+                Debug.Log(ValidationString);
+            else
+                Debug.LogError(ValidationString);
+
+            return valid;
+        }
+
+        private class AssetInfo
+        {
+            public readonly string Path;
+            public readonly Type Type;
+            
+            public AssetInfo(string path, Type type)
+            {
+                Path = type != typeof(Shader) ? $"{BasePath}{path}" : path;
+                Type = type;
+            }
+        }
+
+        public enum BuiltinAssets
+        {
+            FoamMap,
+            DetailNormalMap,
+            SurfaceMap,
+            WaterFX,
+            DitherNoise,
+            InfiniteWaterMesh,
+            WaterTile,
+            WaterShader,
+            CausticShader,
+            InfiniteWaterShader,
+            WaterDepthShader
+        }
+
+        private Dictionary<BuiltinAssets, AssetInfo> _assetInfo = new()
+        {
+            {BuiltinAssets.FoamMap, new AssetInfo("Textures/WaterFoam.png", typeof(Texture2D))},
+            {BuiltinAssets.DetailNormalMap, new AssetInfo("Textures/WaterNormals.tif", typeof(Texture2D))},
+            {BuiltinAssets.SurfaceMap, new AssetInfo("Textures/WaterSurface_single.tif", typeof(Texture2D))},
+            {BuiltinAssets.WaterFX, new AssetInfo("Textures/DefaultWaterFX.tif", typeof(Texture2D))},
+            {BuiltinAssets.DitherNoise, new AssetInfo("Textures/normalNoise.png", typeof(Texture2D))},
+            {BuiltinAssets.InfiniteWaterMesh, new AssetInfo("Meshes/InfiniteSea.fbx", typeof(Mesh))},
+            {BuiltinAssets.WaterTile, new AssetInfo("Meshes/WaterTile.fbx", typeof(Mesh))},
+            {BuiltinAssets.WaterShader, new AssetInfo("Boat Attack/Water", typeof(Shader))},
+            {BuiltinAssets.CausticShader, new AssetInfo("Boat Attack/Water/Caustics", typeof(Shader))},
+            {BuiltinAssets.InfiniteWaterShader, new AssetInfo("Boat Attack/Water/InfiniteWater", typeof(Shader))},
+            {BuiltinAssets.WaterDepthShader, new AssetInfo("Boat Attack/Water/WaterBuffer/WaterDepthOnly", typeof(Shader))},
+        };
+
+        // method to return a resource based on the BuiltinAssets enum
+        public T GetResource<T>(BuiltinAssets asset)
+        {
+#if UNITY_EDITOR
+            EditorUtility.SetDirty(ProjectSettings.Instance);
+            return _assetInfo[asset].Type switch
+            {
+                { } textureType when textureType == typeof(Texture2D) => (T) (object) AssetDatabase
+                    .LoadAssetAtPath<Texture2D>(_assetInfo[asset].Path),
+                { } meshType when meshType == typeof(Mesh) => (T) (object) AssetDatabase.LoadAssetAtPath<Mesh>(
+                    _assetInfo[asset].Path),
+                { } shaderType when shaderType == typeof(Shader) => (T) (object) Shader.Find(_assetInfo[asset].Path),
+                _ => default
+            };
+#else
+            return default(T);
 #endif
         }
     }

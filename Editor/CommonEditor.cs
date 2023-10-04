@@ -33,12 +33,17 @@ namespace WaterSystem
 
         private const string CreateMenuString = "GameObject/Boat Attack Water/";
         
-        [ MenuItem( CreateMenuString + "Ocean", false, 10) ]
+        [ MenuItem( CreateMenuString + "Water", false, 10) ]
         static void CreateOcean()
         {
-            var gameObject = new GameObject("Ocean", typeof(Ocean));
+            var gameObject = new GameObject("Ocean", typeof(Water));
             Undo.RegisterCreatedObjectUndo(gameObject, "Create " + gameObject.name);
             Selection.activeObject = gameObject;
+        }
+        
+        public static float SingleLineHeight(bool withSpacing = true)
+        {
+            return EditorGUIUtility.singleLineHeight + (withSpacing ? EditorGUIUtility.standardVerticalSpacing : 0);
         }
     }
 }

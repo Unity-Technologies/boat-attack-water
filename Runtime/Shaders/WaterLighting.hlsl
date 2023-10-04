@@ -153,13 +153,11 @@ void RayMarch(float3 origin, float3 direction, out half2 sampleUV, out half vali
     for(int i = 0; i < SSR_ITERATIONS; i++)
     {
         debug++;
-        //if(valid == 0)
         {
             origin += direction;
             direction *= 2;
             sampleUV = ViewSpacePosToUV(origin);
 
-            //sampleUV.x = sampleUV.x % 2.0;
             
             if(!(sampleUV.x > 1 || sampleUV.x < 0 || sampleUV.y > 1 || sampleUV.y < 0))
             {

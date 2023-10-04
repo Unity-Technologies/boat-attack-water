@@ -21,45 +21,52 @@ namespace WaterSystem.Rendering
             public Matrix4x4 Matrix;
         }
 
-        private readonly Material _material;
+        public Material Material;
         private readonly MaterialPropertyBlock _mpb = new MaterialPropertyBlock();
         private readonly SphericalHarmonicsL2[] _ambientProbe = new SphericalHarmonicsL2[1];
 
         private const string PassName = nameof(InfiniteWaterPlane);
 
-        public InfiniteWaterPlane(Material material)
+        public InfiniteWaterPlane()
         {
             renderPassEvent = RenderPassEvent.BeforeRenderingTransparents;
             profilingSampler = new ProfilingSampler(PassName);
-            _material = material;
+
+            Material = CoreUtils.CreateEngineMaterial(ProjectSettings.Instance.resources.InfiniteWaterShader);
         }
         
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
         {
-            if (!ExecutionCheck(renderingData.cameraData)) return;
-            SetupPassData(ref _passData, renderingData.cameraData);
+            if (!ExecutionCheck(renderingData.cameraData.camera)) return;
+            SetupPassData(ref _passData, renderingData.cameraData.worldSpaceCameraPos);
             
             
             var cmd = CommandBufferPool.Get();
-            cmd.DrawMesh(_passData.InfiniteMesh, _passData.Matrix, _passData.InfiniteMaterial, 0, 0, _passData.MPB);
-            
+            using (new ProfilingScope(cmd, profilingSampler))
+            {
+                cmd.DrawMesh(_passData.InfiniteMesh, _passData.Matrix, _passData.InfiniteMaterial, 0, 0, _passData.MPB);
+            }
+
             context.ExecuteCommandBuffer(cmd);
             CommandBufferPool.Release(cmd);
         }
         
 #if UNITY_2023_3_OR_NEWER || RENDER_GRAPH_ENABLED // RenderGraph
         
-        public override void RecordRenderGraph(RenderGraph renderGraph, FrameResources frameResources,
-            ref RenderingData renderingData)
+        public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer contextContainer)
         {
-            if (!ExecutionCheck(renderingData.cameraData)) return;
+            UniversalCameraData cameraData = contextContainer.Get<UniversalCameraData>();
+            
+            if (!ExecutionCheck(cameraData.camera)) return;
             
             using (var builder = renderGraph.AddRasterRenderPass<PassData>(PassName, out var passData, profilingSampler))
             {
-                SetupPassData(ref passData, renderingData.cameraData);
+                SetupPassData(ref passData, cameraData.worldSpaceCameraPos);
                 
-                builder.UseTextureFragment(frameResources.GetTexture(UniversalResource.CameraColor), 0);
-                builder.UseTextureFragmentDepth(frameResources.GetTexture(UniversalResource.CameraDepth), 0);
+                UniversalResourceData resourceData = contextContainer.Get<UniversalResourceData>();
+                
+                builder.UseTextureFragment(resourceData.cameraColor, 0);
+                builder.UseTextureFragmentDepth(resourceData.cameraDepth, 0);
                 
                 builder.SetRenderFunc((PassData data, RasterGraphContext context) =>
                 {
@@ -71,33 +78,38 @@ namespace WaterSystem.Rendering
 
 #endif
 
-        private void SetupPassData(ref PassData data, CameraData cameraData)
+        private void SetupPassData(ref PassData data, Vector3 cameraPositionWS)
         {
-            data.InfiniteMesh = WaterProjectSettings.Instance.resources?.infiniteWaterMesh;
-            data.InfiniteMaterial = _material;
-            data.Matrix = Matrix4x4.TRS(cameraData.worldSpaceCameraPos, Quaternion.identity, Vector3.one);
+            data.InfiniteMesh = ProjectSettings.Instance.resources?.InfiniteWaterMesh;
+            data.InfiniteMaterial = Material;
+            data.Matrix = Matrix4x4.TRS(cameraPositionWS, Quaternion.identity, Vector3.one);
             data.MPB = _mpb;
             _ambientProbe[0] = RenderSettings.ambientProbe;
             data.MPB.CopySHCoefficientArraysFrom(_ambientProbe);
         }
 
-        private bool ExecutionCheck(CameraData cameraData)
+        private bool ExecutionCheck(Camera camera)
         {
-            var cameraType = cameraData.camera.cameraType;
+            var cameraType = camera.cameraType;
             if (cameraType is not CameraType.Game or CameraType.SceneView &&
-                cameraData.camera.name.Contains("Reflections"))
+                camera.name.Contains("Reflections"))
             {
-                Debug.Log($"Infinite water plane Skipping Camera {cameraData.camera.name}");
+                //Debug.Log($"Infinite water plane Skipping Camera {cameraData.camera.name}");
                 return false;
             }
             
-            if (!WaterProjectSettings.Instance.resources?.infiniteWaterMesh)
+            if (!ProjectSettings.Instance.resources?.InfiniteWaterMesh)
             {
-                Debug.LogError($"Infinite water place pass kipping due to missing Mesh or Material");
+                Debug.LogError($"Infinite water place pass skipping due to missing Mesh or Material");
                 return false;
             }
 
             return true;
+        }
+
+        public void Cleanup()
+        {
+            CoreUtils.Destroy(Material);
         }
     }
 }

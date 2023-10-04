@@ -16,7 +16,7 @@ namespace WaterSystem.Settings
         private static bool[] showQualityLevel;
         
         // Raw data
-        private static WaterProjectSettings rawData;
+        private static ProjectSettings rawData;
         
         // Serialized data
         private static SerializedObject settings;
@@ -43,8 +43,8 @@ namespace WaterSystem.Settings
                 {
                     // Serialized data
                     settings = GetSerializedSettings();
-                    resources = settings.FindProperty(nameof(WaterProjectSettings._resources));
-                    defaultSettings = settings.FindProperty(nameof(WaterProjectSettings.defaultQualitySettings));
+                    resources = settings.FindProperty(nameof(ProjectSettings._resources));
+                    defaultSettings = settings.FindProperty(nameof(ProjectSettings.defaultQuality));
                     
                     // string data
                     qualityNames = new string[QualitySettings.names.Length];
@@ -52,11 +52,11 @@ namespace WaterSystem.Settings
                     
                     // Get all quality data
                     qualitySettings = new SerializedProperty[qualityNames.Length];
-                    
-                    for (int i = 0; i < qualitySettings.Length; i++)
+                    var tempProp = settings.FindProperty(nameof(ProjectSettings.qualitySettings));
+                    for (var i = 0; i < qualitySettings.Length; i++)
                     {
-                        qualitySettings[i] = settings.FindProperty(nameof(WaterProjectSettings.qualitySettings))
-                            .GetArrayElementAtIndex(i);
+                        if(tempProp.arraySize > i)
+                            qualitySettings[i] = tempProp.GetArrayElementAtIndex(i);
                     }
 
                     showQualityLevel = new bool[qualityNames.Length];
@@ -126,8 +126,9 @@ namespace WaterSystem.Settings
                     if (EditorGUI.EndChangeCheck())
                     {
                         settings.ApplyModifiedProperties();
-                        if(Ocean.Instance != null)
-                            Ocean.Instance.Init();
+                        // TODO need to update this
+                        //if(Ocean.Instance != null)
+                        //    Ocean.Instance.Init(BaseSystem.GetInstance<WaterManager>().CurrentState);
                     }
                 },
 
@@ -142,8 +143,8 @@ namespace WaterSystem.Settings
         {
             if (index >= 0)
             {
-                var disable = qualitySettings[index] == null || qualitySettings[index].managedReferenceValue ==
-                    defaultSettings.managedReferenceValue;
+                var disable = qualitySettings[index] == null || qualitySettings[index].objectReferenceValue ==
+                    defaultSettings.objectReferenceValue;
                 var data = disable ? defaultSettings : qualitySettings[index];
                 EditorGUI.BeginDisabledGroup(disable);
                 EditorGUILayout.PropertyField(data, true);
@@ -187,14 +188,14 @@ namespace WaterSystem.Settings
                     "Reset",
                     "Cancel"))
             {
-                WaterProjectSettings.Instance.resources.Init();
+                ProjectSettings.Instance.resources.Init();
             }
         }
         
         static void ShowQualityHeaderContextMenu(Rect position, int index)
         {
             var menu = new GenericMenu();
-            var unique = rawData.qualitySettings[index] != rawData.defaultQualitySettings;
+            var unique = rawData.qualitySettings[index] != rawData.defaultQuality;
             var a = new GUIContent("Reset to Default");
             var b = new GUIContent("Custom settings");
 
@@ -217,19 +218,19 @@ namespace WaterSystem.Settings
             }
             else
             {
-                WaterProjectSettings.Instance.qualitySettings[index] = WaterQualitySettings.Create();
-                qualitySettings[index].managedReferenceValue = WaterProjectSettings.Instance.qualitySettings[index];
+                ProjectSettings.Instance.qualitySettings[index] = Quality.Create();
+                qualitySettings[index].managedReferenceValue = ProjectSettings.Instance.qualitySettings[index];
             }
         }
 
-        private static WaterProjectSettings GetOrCreateSettings()
+        private static ProjectSettings GetOrCreateSettings()
         {
-            if(WaterProjectSettings.Instance != null) return WaterProjectSettings.Instance;
-            var settings = AssetDatabase.LoadAssetAtPath<WaterProjectSettings>(SettingsConsts.FullBuildPath);
+            if(ProjectSettings.Instance != null) return ProjectSettings.Instance;
+            var settings = AssetDatabase.LoadAssetAtPath<ProjectSettings>(SettingsConsts.FullBuildPath);
             if (settings != null) return settings;
             
             Debug.Log("Making new WaterProjectSettings asset");
-            settings = ScriptableObject.CreateInstance<WaterProjectSettings>();
+            settings = ScriptableObject.CreateInstance<ProjectSettings>();
 
             // check for folder
 #if UNITY_2023_1_OR_NEWER
@@ -256,7 +257,7 @@ namespace WaterSystem.Settings
         {
             if (!Application.isPlaying)
             {
-                WaterProjectSettings.Instance = GetOrCreateSettings();
+                ProjectSettings.Instance = GetOrCreateSettings();
             }
         }
     }

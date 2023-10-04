@@ -13,7 +13,6 @@ half _WaveHeight;
 half _MaxDepth;
 half _MaxWaveHeight;
 half4 _BoatAttack_Water_DepthCamParams;
-float4x4 _InvViewProjection;
 half3 _SSR_Settings;
 half _CameraFov;
 
@@ -24,11 +23,10 @@ half _CameraFov;
 SAMPLER(sampler_ScreenTextures_point_clamp);
 #if defined(_REFLECTION_PLANARREFLECTION)
 TEXTURE2D(_PlanarReflectionTexture);
-#endif
-//#elif defined(_REFLECTION_CUBEMAP)
+#else
 TEXTURECUBE(_CubemapTexture);
 SAMPLER(sampler_CubemapTexture);
-//#endif
+#endif
 TEXTURE2D(_WaterBufferA);
 TEXTURE2D(_WaterBufferB);
 TEXTURE2D(_CameraDepthTexture);
