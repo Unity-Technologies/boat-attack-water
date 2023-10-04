@@ -102,11 +102,11 @@ namespace WaterSystem.Rendering
                 data = _passData[waterBody];
                 SetupPassData(ref data, waterBody, cameraData.worldSpaceCameraPos);
                 _passData[waterBody] = data;
-                RenderRG(renderGraph, _passData[waterBody], cameraData.camera, resourceData.cameraColor, resourceData.cameraDepth);
+                RenderRG(renderGraph, _passData[waterBody], cameraData.camera, resourceData);
             }
         }
 
-        private void RenderRG(RenderGraph renderGraph, PassData inputData, Camera camera, TextureHandle cameraColorTexture, TextureHandle cameraDepthTexture)
+        private void RenderRG(RenderGraph renderGraph, PassData inputData, Camera camera, UniversalResourceData resourceData)
         {
             using (var builder = renderGraph.AddRasterRenderPass<PassData>(nameof(WaterCaustics), out var passData, profilingSampler))
             {
@@ -115,9 +115,14 @@ namespace WaterSystem.Rendering
                 if (!ExecutionCheck(camera, passData.data.WaterCausticMaterial)) return;
                 
                 builder.AllowPassCulling(false);
-                builder.UseTextureFragment(cameraColorTexture, 0);
-                builder.UseTexture(cameraDepthTexture);
+                
+                // set buffers
+                builder.UseTextureFragment(resourceData.activeColorTexture, 0);
+                builder.UseTextureFragmentDepth(resourceData.activeDepthTexture, IBaseRenderGraphBuilder.AccessFlags.Read);
 
+                // set depthtexture read for the shader
+                builder.UseTexture(resourceData.cameraDepthTexture);
+                
                 builder.SetRenderFunc((PassData data, RasterGraphContext context) =>
                 {
                     if(data.data.m_mesh != null || data.data.WaterCausticMaterial != null)

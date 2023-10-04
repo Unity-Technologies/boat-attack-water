@@ -33,6 +33,11 @@
 			#pragma multi_compile_fragment _ _LIGHT_COOKIES
             #pragma multi_compile_fragment _ _SHADOWS_SOFT
 
+			#if UNITY_VERSION >= 202330
+            #include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
+            #pragma multi_compile _ _FORWARD_PLUS
+            #endif
+
 			// make fog work
 			#pragma multi_compile_fog
 

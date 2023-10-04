@@ -30,6 +30,11 @@
             #pragma multi_compile _ _DEBUG
             #pragma multi_compile _ _STATIC_SHADER
 
+            #if UNITY_VERSION >= 202330
+            #include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
+            #pragma multi_compile _ _FORWARD_PLUS
+            #endif
+
             #pragma vertex vert
             #pragma fragment frag
 
@@ -118,7 +123,7 @@
                 float waveOffset = SAMPLE_TEXTURE2D(_CausticMap, sampler_CausticMap, uv).w - 0.5;
 
                 float2 causticUV = CausticUVs(LightUVs.xy, waveOffset);
-
+                
                 float LodLevel = abs(WorldPos.y - WATER_HEIGHT) * 4 / _BlendDistance;
                 float4 A = SAMPLE_TEXTURE2D_LOD(_CausticMap, sampler_CausticMap, causticUV + time, LodLevel);
                 float4 B = SAMPLE_TEXTURE2D_LOD(_CausticMap, sampler_CausticMap, causticUV * 2.0 - time, LodLevel);
@@ -126,7 +131,7 @@
                 float CausticsDriver = (A.z * B.z) * 10 + A.z + B.z;
                 
                 // Mask caustics from above water and fade below
-                half level = -0.25;
+                half level = WATER_HEIGHT;
                 half upperMask = saturate(-WorldPos.y + level);
                 half lowerMask = 1 - saturate(LodLevel * 0.125);
                 CausticsDriver *= min(upperMask, lowerMask);
