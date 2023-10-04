@@ -1,7 +1,7 @@
 {
   "name": "com.unity.urp-water-system",
   "description": "A water system for use in URP, developed for the Boat Attack demo project.",
-  "version": "2.0.0-preview.4",
+  "version": "2.0.0-preview.5",
   "unity": "2021.3",
   "displayName": "Boat Attack Water System",
   "dependencies": {
