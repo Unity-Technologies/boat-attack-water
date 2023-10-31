@@ -71,6 +71,7 @@ namespace WaterSystem
         private void DrawInfiniteWaterPlane(ScriptableRenderer scriptableRenderer)
         {
             _infiniteWaterPlanePass ??= new InfiniteWaterPlane();
+            _infiniteWaterPlanePass.HeightOffset = transform.position.y;
             scriptableRenderer.EnqueuePass(_infiniteWaterPlanePass);
         }
 
@@ -190,7 +191,7 @@ namespace WaterSystem
                 case WaterShapeType.Infinite:
                     _meshSettings.infinite = true;
                     _meshSettings.size = new float2(settings.distanceBlend * 2f, 0f);
-                    _meshSettings.baseTileSize = 20;
+                    _meshSettings.baseTileSize = Mathf.Max(20, (int)(settings.distanceBlend * 0.1f));
                     break;
                 case WaterShapeType.Plane:
                     _meshSettings.infinite = false;

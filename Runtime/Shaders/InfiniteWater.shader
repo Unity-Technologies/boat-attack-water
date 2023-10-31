@@ -63,16 +63,17 @@
 				output.uv.xy = input.texcoord;
 
 				float3 cameraOffset = GetCameraPositionWS();
+				cameraOffset.y -= _WaveHeight;
             	input.positionOS.xz *= _BoatAttack_Water_DistanceBlend * 0.45; // scale range to blend distance
-            	input.positionOS.y *= cameraOffset.y - _WaveHeight * 2; // scale height to camera
-				input.positionOS.y -= cameraOffset.y - _WaveHeight * 2;
+            	input.positionOS.y *= cameraOffset.y;// - _WaveHeight * 2; // scale height to camera
+				input.positionOS.y -= cameraOffset.y;// - _WaveHeight * 2;
 
-                VertexPositionInputs vertexInput = GetVertexPositionInputs(input.positionOS.xyz);
-				output.positionCS = vertexInput.positionCS;
-				output.positionWS = vertexInput.positionWS;
-				output.screenPosition = ComputeScreenPos(vertexInput.positionCS);
+                output.positionWS = TransformObjectToWorld(input.positionOS);
+				output.positionCS = TransformWorldToHClip(output.positionWS);
+				
+				output.screenPosition = ComputeScreenPos(output.positionCS);
 
-				float3 viewPos = vertexInput.positionVS;
+				float3 viewPos = TransformWorldToView(output.positionWS);
 				output.viewDirectionWS.xyz = UNITY_MATRIX_IT_MV[2].xyz;
 				output.viewDirectionWS.w = length(viewPos / viewPos.z);
             	

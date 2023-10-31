@@ -22,6 +22,7 @@ namespace WaterSystem.Rendering
         }
 
         public Material Material;
+        public float HeightOffset;
         private readonly MaterialPropertyBlock _mpb = new MaterialPropertyBlock();
         private readonly SphericalHarmonicsL2[] _ambientProbe = new SphericalHarmonicsL2[1];
 
@@ -86,6 +87,8 @@ namespace WaterSystem.Rendering
             data.MPB = _mpb;
             _ambientProbe[0] = RenderSettings.ambientProbe;
             data.MPB.CopySHCoefficientArraysFrom(_ambientProbe);
+            data.MPB.SetFloat(Utilities.ShaderIDs.WaveHeight, HeightOffset);
+            data.MPB.SetFloat(Utilities.ShaderIDs.MaxWaveHeight, 0); // todo add max wave height
         }
 
         private bool ExecutionCheck(Camera camera)
