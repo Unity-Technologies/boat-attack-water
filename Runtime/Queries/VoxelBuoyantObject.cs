@@ -22,8 +22,8 @@ namespace WaterSystem.Physics
         [SerializeField] private float3 localArchimedesForce;
         private Utilities.PhysicsForce _buoyantForce;
 
-        private float _baseDrag;
-        private float _baseAngularDrag;
+        private float _baseLinearDamping;
+        private float _baseAngularDamping;
         
         private const int MaxVoxels = 4096;
 
@@ -40,8 +40,8 @@ namespace WaterSystem.Physics
         {
             QueryCount = voxels.Length;
             voxelsWS = new Vector3[voxels.Length];
-            _baseDrag = rigidbody.drag;
-            _baseAngularDrag = rigidbody.angularDrag;
+            _baseLinearDamping = rigidbody.linearDamping;
+            _baseAngularDamping = rigidbody.angularDamping;
         }
 
         private void FixedUpdate()
@@ -56,7 +56,7 @@ namespace WaterSystem.Physics
         private void Update()
         {
             LocalToWorld();
-            UpdateDrag();
+            UpdateDamping();
         }
 
         #region WaterQuery
@@ -185,10 +185,10 @@ namespace WaterSystem.Physics
 
         #region Utilities
         
-        private void UpdateDrag()
+        private void UpdateDamping()
         {
-            rigidbody.drag = _baseDrag + _baseDrag * (_buoyantForce.Submerged * 10f);
-            rigidbody.angularDrag = _baseAngularDrag + _baseAngularDrag * (_buoyantForce.Submerged * 4f);
+            rigidbody.linearDamping = _baseLinearDamping + _baseLinearDamping * (_buoyantForce.Submerged * 10f);
+            rigidbody.angularDamping = _baseAngularDamping + _baseAngularDamping * (_buoyantForce.Submerged * 4f);
         }
         
         private void LocalToWorld()
