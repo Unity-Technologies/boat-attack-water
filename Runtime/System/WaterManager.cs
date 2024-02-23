@@ -85,11 +85,11 @@ namespace WaterSystem
             
             _waterCaustics ??= new WaterCaustics();
             urpCameraData.scriptableRenderer.EnqueuePass(_waterCaustics);
-            
-#if UNITY_2023_3_OR_NEWER || RENDER_GRAPH_ENABLED // RenderGraph
-            // inject dummy pass later in the frame to keep resources alive
-            urpCameraData.scriptableRenderer.EnqueuePass(new Utilities.DummyResourcePass(RenderPassEvent.AfterRenderingTransparents));
-#endif
+//             
+// #if UNITY_2023_3_OR_NEWER || RENDER_GRAPH_ENABLED // RenderGraph
+//             // inject dummy pass later in the frame to keep resources alive
+//             urpCameraData.scriptableRenderer.EnqueuePass(new Utilities.DummyResourcePass(RenderPassEvent.AfterRenderingTransparents));
+// #endif
         }
 
         private void OnDisable()

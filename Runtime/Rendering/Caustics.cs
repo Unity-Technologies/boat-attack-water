@@ -4,10 +4,7 @@ using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using WaterSystem.Settings;
 using WaterSystem.Rendering;
-#if UNITY_2023_3_OR_NEWER || RENDER_GRAPH_ENABLED // RenderGraph
-using UnityEngine.Experimental.Rendering;
-using UnityEngine.Experimental.Rendering.RenderGraphModule;
-#endif
+using UnityEngine.Rendering.RenderGraphModule;
 
 namespace WaterSystem.Rendering
 {
@@ -21,6 +18,7 @@ namespace WaterSystem.Rendering
         private class PassData
         {
             internal Data data;
+
             internal struct Data
             {
                 internal Material WaterCausticMaterial;
@@ -40,50 +38,7 @@ namespace WaterSystem.Rendering
             }
         }
 
-        public override void Configure(CommandBuffer cmd, RenderTextureDescriptor cameraTextureDescriptor)
-        {
-            ConfigureInput(ScriptableRenderPassInput
-                .Color); // TODO, adding here but is needed for the water in the transparent pass
-            ConfigureInput(ScriptableRenderPassInput.Depth);
-        }
-
-        public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
-        {
-            // Stop the pass rendering in the preview and if material is missing
-            if (!ExecutionCheck(renderingData.cameraData.camera, _material)) return;
-
-            var cmd = CommandBufferPool.Get();
-            using (new ProfilingScope(cmd, profilingSampler))
-            {
-                // for each water body in WaterManager add a pass data if it doesn't exist
-                foreach (var waterBody in WaterManager.WaterBodies)
-                {
-                    if (waterBody == null) continue;
-                    PassData data;
-                    if (!_passData.ContainsKey(waterBody))
-                    {
-                        data = new PassData();
-                        _passData.Add(waterBody, data);
-                    }
-
-                    data = _passData[waterBody];
-                    SetupPassData(ref data, waterBody, renderingData.cameraData.worldSpaceCameraPos);
-                    _passData[waterBody] = data;
-
-#if UNITY_2023_3_OR_NEWER || RENDER_GRAPH_ENABLED // RenderGraph
-            ExecutePass(_passData[waterBody], CommandBufferHelpers.GetRasterCommandBuffer(cmd));
-#else
-                    ExecutePass(_passData[waterBody], cmd);
-#endif
-                }
-            }
-
-            context.ExecuteCommandBuffer(cmd);
-            CommandBufferPool.Release(cmd);
-        }
-
-#if UNITY_2023_3_OR_NEWER || RENDER_GRAPH_ENABLED // RenderGraph
-        public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer contextContainer)
+        public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
         {
             // populate pass data for each water body and call RenderRG
             foreach (var waterBody in WaterManager.WaterBodies)
@@ -95,9 +50,9 @@ namespace WaterSystem.Rendering
                     data = new PassData();
                     _passData.Add(waterBody, data);
                 }
-                
-                UniversalCameraData cameraData = contextContainer.Get<UniversalCameraData>();
-                UniversalResourceData resourceData = contextContainer.Get<UniversalResourceData>();
+
+                UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
+                UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
 
                 data = _passData[waterBody];
                 SetupPassData(ref data, waterBody, cameraData.worldSpaceCameraPos);
@@ -108,41 +63,33 @@ namespace WaterSystem.Rendering
 
         private void RenderRG(RenderGraph renderGraph, PassData inputData, Camera camera, UniversalResourceData resourceData)
         {
-            using (var builder = renderGraph.AddRasterRenderPass<PassData>(nameof(WaterCaustics), out var passData, profilingSampler))
+            using (
+                var builder = renderGraph.AddRasterRenderPass<PassData>(
+                       nameof(WaterCaustics),
+                       out var passData,
+                       profilingSampler)
+                )
             {
                 passData.data = inputData.data;
                 // Stop the pass rendering in the preview and if material is missing
                 if (!ExecutionCheck(camera, passData.data.WaterCausticMaterial)) return;
-                
+
                 builder.AllowPassCulling(false);
-                
+
                 // set buffers
-                builder.UseTextureFragment(resourceData.activeColorTexture, 0);
-                builder.UseTextureFragmentDepth(resourceData.activeDepthTexture, IBaseRenderGraphBuilder.AccessFlags.Read);
+                builder.SetRenderAttachment(resourceData.activeColorTexture,0,AccessFlags.Write);
+                builder.UseTexture(resourceData.activeDepthTexture,AccessFlags.Read);
 
                 // set depthtexture read for the shader
                 builder.UseTexture(resourceData.cameraDepthTexture);
-                
-                builder.SetRenderFunc((PassData data, RasterGraphContext context) =>
+
+                builder.SetRenderFunc(static (PassData data, RasterGraphContext context) =>
                 {
-                    if(data.data.m_mesh != null || data.data.WaterCausticMaterial != null)
+                    if (data.data.m_mesh != null || data.data.WaterCausticMaterial != null)
                         context.cmd.DrawMesh(data.data.m_mesh, data.data.matrix, data.data.WaterCausticMaterial, 0, 0);
-                    //ExecutePass(data, context.cmd);
+                    
                 });
             }
-        }
-        
-#endif
-
-#if UNITY_2023_3_OR_NEWER || RENDER_GRAPH_ENABLED // RenderGraph
-        static void ExecutePass(PassData data, RasterCommandBuffer cmd)
-#else
-        static void ExecutePass(PassData data, CommandBuffer cmd)
-#endif
-        {
-            // Draw the mesh with the caustic material and matrix
-            if(data.data.m_mesh != null || data.data.WaterCausticMaterial != null)
-                cmd.DrawMesh(data.data.m_mesh, data.data.matrix, data.data.WaterCausticMaterial, 0, 0);
         }
 
         private void SetupPassData(ref PassData data, WaterBody waterBody, Vector3 cameraPosition)
@@ -152,7 +99,7 @@ namespace WaterSystem.Rendering
                 : Matrix4x4.TRS(Vector3.zero, Quaternion.Euler(-45f, 45f, 0f), Vector3.one);
             if (data.data.WaterCausticMaterial == null)
             {
-                if(_material == null)
+                if (_material == null)
                     return;
                 data.data.WaterCausticMaterial = Material.Instantiate(_material);
             }
@@ -169,11 +116,13 @@ namespace WaterSystem.Rendering
             else
             {
                 var transform = waterBody.transform;
-                var size = waterBody.shape.type == WaterBody.WaterShapeType.Plane ?
-                    new Vector3(waterBody.shape.size.x, 1f, waterBody.shape.size.y): Vector3.one * waterBody.shape.Radius * 2f;
+                var size = waterBody.shape.type == WaterBody.WaterShapeType.Plane
+                    ? new Vector3(waterBody.shape.size.x, 1f, waterBody.shape.size.y)
+                    : Vector3.one * waterBody.shape.Radius * 2f;
                 data.data.matrix = Matrix4x4.TRS(transform.position, transform.rotation, size);
                 matrix = Matrix4x4.TRS(transform.position, transform.rotation, Vector3.one);
             }
+
             data.data.WaterCausticMaterial.SetMatrix("_WaterBodyToWorld", matrix);
 
             data.data.WaterCausticMaterial.SetFloat("_WaterLevel", waterBody.transform.position.y);
@@ -205,3 +154,41 @@ namespace WaterSystem.Rendering
         }
     }
 }
+
+
+        // public override void Configure(CommandBuffer cmd, RenderTextureDescriptor cameraTextureDescriptor)
+        // {
+        //     // TODO, adding here but is needed for the water in the transparent pass
+        //     ConfigureInput(ScriptableRenderPassInput.Color);
+        //     ConfigureInput(ScriptableRenderPassInput.Depth);
+        // }
+        //
+        // public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
+        // {
+        //     // Stop the pass rendering in the preview and if material is missing
+        //     if (!ExecutionCheck(renderingData.cameraData.camera, _material)) return;
+        //
+        //     var cmd = CommandBufferPool.Get();
+        //     using (new ProfilingScope(cmd, profilingSampler))
+        //     {
+        //         // for each water body in WaterManager add a pass data if it doesn't exist
+        //         foreach (var waterBody in WaterManager.WaterBodies)
+        //         {
+        //             if (waterBody == null) continue;
+        //             PassData data;
+        //             if (!_passData.ContainsKey(waterBody))
+        //             {
+        //                 data = new PassData();
+        //                 _passData.Add(waterBody, data);
+        //             }
+        //
+        //             data = _passData[waterBody];
+        //             SetupPassData(ref data, waterBody, renderingData.cameraData.worldSpaceCameraPos);
+        //             _passData[waterBody] = data;
+        //             ExecutePass(_passData[waterBody], CommandBufferHelpers.GetRasterCommandBuffer(cmd));
+        //         }
+        //     }
+        //
+        //     context.ExecuteCommandBuffer(cmd);
+        //     CommandBufferPool.Release(cmd);
+        // }

@@ -2,9 +2,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using WaterSystem.Settings;
-#if UNITY_2023_3_OR_NEWER || RENDER_GRAPH_ENABLED // RenderGraph
-using UnityEngine.Experimental.Rendering.RenderGraphModule;
-#endif
+using UnityEngine.Rendering.RenderGraphModule;
 
 namespace WaterSystem.Rendering
 {
@@ -36,27 +34,9 @@ namespace WaterSystem.Rendering
             Material = CoreUtils.CreateEngineMaterial(ProjectSettings.Instance.resources.InfiniteWaterShader);
         }
         
-        public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
+        public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
         {
-            if (!ExecutionCheck(renderingData.cameraData.camera)) return;
-            SetupPassData(ref _passData, renderingData.cameraData.worldSpaceCameraPos);
-            
-            
-            var cmd = CommandBufferPool.Get();
-            using (new ProfilingScope(cmd, profilingSampler))
-            {
-                cmd.DrawMesh(_passData.InfiniteMesh, _passData.Matrix, _passData.InfiniteMaterial, 0, 0, _passData.MPB);
-            }
-
-            context.ExecuteCommandBuffer(cmd);
-            CommandBufferPool.Release(cmd);
-        }
-        
-#if UNITY_2023_3_OR_NEWER || RENDER_GRAPH_ENABLED // RenderGraph
-        
-        public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer contextContainer)
-        {
-            UniversalCameraData cameraData = contextContainer.Get<UniversalCameraData>();
+            UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
             
             if (!ExecutionCheck(cameraData.camera)) return;
             
@@ -64,20 +44,17 @@ namespace WaterSystem.Rendering
             {
                 SetupPassData(ref passData, cameraData.worldSpaceCameraPos);
                 
-                UniversalResourceData resourceData = contextContainer.Get<UniversalResourceData>();
+                var resourceData = frameData.Get<UniversalResourceData>();
+                builder.SetRenderAttachment(resourceData.cameraColor, 0,AccessFlags.ReadWrite);
+                // builder.SetRenderAttachment(resourceData.cameraDepth, 1,AccessFlags.ReadWrite);
                 
-                builder.UseTextureFragment(resourceData.cameraColor, 0);
-                builder.UseTextureFragmentDepth(resourceData.cameraDepth, 0);
-                
+                builder.AllowPassCulling(false);
                 builder.SetRenderFunc((PassData data, RasterGraphContext context) =>
                 {
-                    context.cmd.DrawMesh(data.InfiniteMesh, data.Matrix, data.InfiniteMaterial, 0, 0,
-                        data.MPB);
+                    context.cmd.DrawMesh(data.InfiniteMesh, data.Matrix, data.InfiniteMaterial, 0, 0, data.MPB);
                 });
             }
         }
-
-#endif
 
         private void SetupPassData(ref PassData data, Vector3 cameraPositionWS)
         {
@@ -94,8 +71,7 @@ namespace WaterSystem.Rendering
         private bool ExecutionCheck(Camera camera)
         {
             var cameraType = camera.cameraType;
-            if (cameraType is not CameraType.Game or CameraType.SceneView &&
-                camera.name.Contains("Reflections"))
+            if (cameraType is not CameraType.Game or CameraType.SceneView && camera.name.Contains("Reflections"))
             {
                 //Debug.Log($"Infinite water plane Skipping Camera {cameraData.camera.name}");
                 return false;

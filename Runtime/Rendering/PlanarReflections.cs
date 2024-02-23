@@ -4,7 +4,6 @@ using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
-using UnityEngine.Experimental.Rendering;
 using WaterSystem.Settings;
 
 namespace WaterSystem.Rendering
@@ -274,7 +273,7 @@ namespace WaterSystem.Rendering
             bool useHdr10 = RenderingUtils.SupportsRenderTextureFormat(RenderTextureFormat.RGB111110Float);
             RenderTextureFormat hdrFormat = useHdr10 ? RenderTextureFormat.RGB111110Float : RenderTextureFormat.DefaultHDR;
             return RenderTexture.GetTemporary(res.x, res.y, 24,
-                GraphicsFormatUtility.GetGraphicsFormat(hdrFormat, true));
+                UnityEngine.Experimental.Rendering.GraphicsFormatUtility.GetGraphicsFormat(hdrFormat, true));
         }
 
         private static int2 ReflectionResolution(Camera cam, float scale)

@@ -1,11 +1,8 @@
 ﻿using System;
 using UnityEngine;
-using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
-#if UNITY_2022_3_OR_NEWER
-using UnityEngine.Experimental.Rendering.RenderGraphModule;
-#endif
+using UnityEngine.Rendering.RenderGraphModule;
 using WaterSystem.Settings;
 
 namespace WaterSystem.Rendering
@@ -23,8 +20,8 @@ namespace WaterSystem.Rendering
 
             if (rampTexture == null)
             {
-                rampTexture = new Texture2D(rampRes, pixelHeight, GraphicsFormat.R8G8B8A8_SRGB,
-                    TextureCreationFlags.None)
+                rampTexture = new Texture2D(rampRes, pixelHeight, UnityEngine.Experimental.Rendering.GraphicsFormat.R8G8B8A8_SRGB,
+                    UnityEngine.Experimental.Rendering.TextureCreationFlags.None)
                 {
                     name = name + "_RampTexture",
                     wrapMode = TextureWrapMode.Clamp
@@ -201,7 +198,6 @@ namespace WaterSystem.Rendering
     
         private static Mesh _causticMesh;
 
-#if UNITY_2023_3_OR_NEWER || RENDER_GRAPH_ENABLED // RenderGraph
         public class WaterResourceData : ContextItem
         {
             public TextureHandle BufferA;
@@ -213,7 +209,6 @@ namespace WaterSystem.Rendering
                 BufferB = TextureHandle.nullHandle;
             }
         }
-#endif
 
         public static Mesh GenerateCausticsMesh(float size, bool flat = true)
         {
@@ -271,7 +266,6 @@ namespace WaterSystem.Rendering
             }
         }
 
-#if UNITY_2023_3_OR_NEWER || RENDER_GRAPH_ENABLED // RenderGraph
         private class PassData
         {
             public string name;
@@ -280,12 +274,12 @@ namespace WaterSystem.Rendering
 
         private static ProfilingSampler setTextureSampler = new ProfilingSampler("GlobalSetTexture");
 
-        public static void SetGlobalTexture(RenderGraph graph, string name, TextureHandle texture,
-            string passName = "Set Global Texture")
+        public static void SetGlobalTexture(RenderGraph graph, string name, TextureHandle texture, string passName = "Set Global Texture")
         {
             using (var builder = graph.AddRasterRenderPass<PassData>(passName, out var passData, setTextureSampler))
             {
-                passData.texture = builder.UseTexture(texture);
+                //passData.texture =
+                builder.UseTexture(texture);
                 passData.name = name;
 
                 builder.AllowPassCulling(false);
@@ -314,9 +308,8 @@ namespace WaterSystem.Rendering
             rgDesc.enableRandomWrite = desc.enableRandomWrite;
             rgDesc.filterMode = filterMode;
             rgDesc.wrapMode = wrapMode;
-            rgDesc.isShadowMap = desc.shadowSamplingMode != ShadowSamplingMode.None && desc.depthStencilFormat != GraphicsFormat.None;
+            rgDesc.isShadowMap = desc.shadowSamplingMode != ShadowSamplingMode.None && desc.depthStencilFormat != UnityEngine.Experimental.Rendering.GraphicsFormat.None;
             // TODO RENDERGRAPH: depthStencilFormat handling?
-
             return renderGraph.CreateTexture(rgDesc);
         }
         
@@ -348,10 +341,7 @@ namespace WaterSystem.Rendering
                     builder.SetRenderFunc((PassData _, RasterGraphContext _) => { });
                 }
             }
-
         }
-
-#endif
         
         #endregion
     }
