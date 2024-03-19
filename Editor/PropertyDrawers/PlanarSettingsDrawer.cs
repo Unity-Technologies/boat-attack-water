@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEditor;
 using PlanarSettings = WaterSystem.Rendering.PlanarReflections.PlanarReflectionSettings;
 
@@ -17,9 +16,7 @@ namespace WaterSystem.Rendering
 		private SerializedProperty obliqueProjection;
 		private SerializedProperty rendererMode;
 		private SerializedProperty rendererIndex;
-
-		private float height;
-
+		
 		private void InitProps(SerializedProperty property)
 		{
 			resolutionMode = property.FindPropertyRelative(nameof(PlanarSettings.m_ResolutionMode));
@@ -82,7 +79,7 @@ namespace WaterSystem.Rendering
 			}
 			EditorGUI.EndProperty();
 
-			position.height = height = position.y - basePos.y;
+			position.height = position.y - basePos.y;
 		}
 
 		public override float GetPropertyHeight(SerializedProperty property, GUIContent label)

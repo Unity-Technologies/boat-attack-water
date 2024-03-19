@@ -246,7 +246,7 @@ namespace WaterSystem.Rendering
             return _causticMesh;
         }
 
-        [System.Serializable]
+        [Serializable]
         public class WaterSystemSettings
         {
             [Header("Caustics Settings")] [Range(0.1f, 1f)]
@@ -321,11 +321,6 @@ namespace WaterSystem.Rendering
             {
                 renderPassEvent = injectionPoint;
                 _passName = passName;
-            }
-            
-            public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
-            {
-                // N/A
             }
 
             public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer container)

@@ -3,7 +3,6 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using WaterSystem.Settings;
-using WaterSystem.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 
 namespace WaterSystem.Rendering
@@ -63,8 +62,7 @@ namespace WaterSystem.Rendering
 
         private void RenderRG(RenderGraph renderGraph, PassData inputData, Camera camera, UniversalResourceData resourceData)
         {
-            using (
-                var builder = renderGraph.AddRasterRenderPass<PassData>(
+            using (var builder = renderGraph.AddRasterRenderPass<PassData>(
                        nameof(WaterCaustics),
                        out var passData,
                        profilingSampler)

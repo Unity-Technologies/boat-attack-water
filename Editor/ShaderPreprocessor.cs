@@ -26,14 +26,9 @@ class ShaderPreprocessor : IPreprocessShaders
     private bool _validShadowMed;
     private bool _validShadowHigh;
     
-    ShaderKeyword m_KeywordStructBuffer;
+    ShaderKeyword m_KeywordStructBuffer = new("USE_STRUCTURED_BUFFER");
 
     private List<ValidKeywordPair> keywordPairs;
-
-    public ShaderPreprocessor()
-    {
-        m_KeywordStructBuffer = new ShaderKeyword("USE_STRUCTURED_BUFFER");
-    }
 
     // Multiple callback may be implemented.
     // The first one executed is the one where callbackOrder is returning the smallest number.

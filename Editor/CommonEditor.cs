@@ -23,12 +23,12 @@ namespace WaterSystem
 
         public static class Tooltips
         {
-            public static string ColorHeader = "Area to tweak the general look of the water";
-            public static string WavesHeader = "Area to tweak the Gerstner waves";
-            public static string ReflectionHeader = "Area to tweak how reflections are done and look";
-            public static string FlowHeader = "Area to change flowmap settings";
-            public static string ShoreHeader = "Area to tweak the shoreline";
-            public static string CausticHeader = "Area to tweak the caustic effect of the water";
+            public static readonly string ColorHeader = "Area to tweak the general look of the water";
+            public static readonly string WavesHeader = "Area to tweak the Gerstner waves";
+            public static readonly string ReflectionHeader = "Area to tweak how reflections are done and look";
+            public static readonly string FlowHeader = "Area to change flowmap settings";
+            public static readonly string ShoreHeader = "Area to tweak the shoreline";
+            public static readonly string CausticHeader = "Area to tweak the caustic effect of the water";
         }
 
         private const string CreateMenuString = "GameObject/Boat Attack Water/";
